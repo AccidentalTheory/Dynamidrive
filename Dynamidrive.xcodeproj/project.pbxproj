@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		6F0E40172D76FF79004F288E /* AudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6F0E40162D76FF79004F288E /* AudioKit */; };
+		6F0EC2FE2DE02E1500D96148 /* Glur in Frameworks */ = {isa = PBXBuildFile; productRef = 6F0EC2FD2DE02E1500D96148 /* Glur */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		6FDD4A232D74039700F9705A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -65,6 +70,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6F0EC2FE2DE02E1500D96148 /* Glur in Frameworks */,
+				6F0E40172D76FF79004F288E /* AudioKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -85,12 +92,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		6F0E401C2D770A75004F288E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		6FDD4A052D74039500F9705A = {
 			isa = PBXGroup;
 			children = (
 				6FDD4A102D74039500F9705A /* Dynamidrive */,
 				6FDD4A252D74039700F9705A /* DynamidriveTests */,
 				6FDD4A2F2D74039700F9705A /* DynamidriveUITests */,
+				6F0E401C2D770A75004F288E /* Frameworks */,
 				6FDD4A0F2D74039500F9705A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -125,6 +140,8 @@
 			);
 			name = Dynamidrive;
 			packageProductDependencies = (
+				6F0E40162D76FF79004F288E /* AudioKit */,
+				6F0EC2FD2DE02E1500D96148 /* Glur */,
 			);
 			productName = Dynamidrive;
 			productReference = 6FDD4A0E2D74039500F9705A /* Dynamidrive.app */;
@@ -184,7 +201,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1620;
-				LastUpgradeCheck = 1620;
+				LastUpgradeCheck = 1630;
 				TargetAttributes = {
 					6FDD4A0D2D74039500F9705A = {
 						CreatedOnToolsVersion = 16.2;
@@ -208,6 +225,11 @@
 			);
 			mainGroup = 6FDD4A052D74039500F9705A;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6F0E40152D76FF79004F288E /* XCRemoteSwiftPackageReference "AudioKit" */,
+				6F0EC2FB2DE0220D00D96148 /* XCRemoteSwiftPackageReference "VariableBlur" */,
+				6F0EC2FC2DE02B6F00D96148 /* XCRemoteSwiftPackageReference "Glur" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FDD4A0F2D74039500F9705A /* Products */;
 			projectDirPath = "";
@@ -291,25 +313,36 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Dynamidrive/Preview Content\"";
-				DEVELOPMENT_TEAM = 822694N92B;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Dynamidrive/Info.plist;
+				INFOPLIST_KEY_NSFocusStatusUsageDescription = "We can use Driving Focus to limit distractions while driving.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Dynamidrive needs your location to adjust music based on your speed, even when the app is in the background.";
+				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "Dynamidrive needs your location to adjust music based on your speed, even when the app is in the background.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Dynamidrive needs your location to adjust music based on your speed while you use the app.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = kaianthonyd.Dynamidrive;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kaidelcastillo.Dynamidrive;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -322,25 +355,36 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Dynamidrive/Preview Content\"";
-				DEVELOPMENT_TEAM = 822694N92B;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Dynamidrive/Info.plist;
+				INFOPLIST_KEY_NSFocusStatusUsageDescription = "We can use Driving Focus to limit distractions while driving.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Dynamidrive needs your location to adjust music based on your speed, even when the app is in the background.";
+				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "Dynamidrive needs your location to adjust music based on your speed, even when the app is in the background.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Dynamidrive needs your location to adjust music based on your speed while you use the app.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = kaianthonyd.Dynamidrive;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kaidelcastillo.Dynamidrive;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -379,6 +423,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 822694N92B;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -442,6 +487,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 822694N92B;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -469,7 +515,6 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 822694N92B;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MARKETING_VERSION = 1.0;
@@ -488,7 +533,6 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 822694N92B;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MARKETING_VERSION = 1.0;
@@ -506,7 +550,6 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 822694N92B;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = kaianthonyd.DynamidriveUITests;
@@ -523,7 +566,6 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 822694N92B;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = kaianthonyd.DynamidriveUITests;
@@ -575,6 +617,46 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		6F0E40152D76FF79004F288E /* XCRemoteSwiftPackageReference "AudioKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/AudioKit/AudioKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.6.4;
+			};
+		};
+		6F0EC2FB2DE0220D00D96148 /* XCRemoteSwiftPackageReference "VariableBlur" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/nikstar/VariableBlur";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		6F0EC2FC2DE02B6F00D96148 /* XCRemoteSwiftPackageReference "Glur" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/joogps/Glur.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6F0E40162D76FF79004F288E /* AudioKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F0E40152D76FF79004F288E /* XCRemoteSwiftPackageReference "AudioKit" */;
+			productName = AudioKit;
+		};
+		6F0EC2FD2DE02E1500D96148 /* Glur */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F0EC2FC2DE02B6F00D96148 /* XCRemoteSwiftPackageReference "Glur" */;
+			productName = Glur;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 6FDD4A062D74039500F9705A /* Project object */;
 }
