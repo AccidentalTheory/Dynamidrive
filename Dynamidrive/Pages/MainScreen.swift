@@ -101,21 +101,10 @@ struct MainScreen: View {
                             impact.impactOccurred()
                             isMainScreenEditMode.toggle()
                         }) {
-                            ZStack {
-                                if isMainScreenEditMode {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 17))
-                                        .foregroundColor(Color(.systemGray))
-                                        .transition(.scale.combined(with: .opacity))
-                                } else {
-                                    Image(systemName: "trash")
-                                        .font(.system(size: 17))
-                                        .foregroundColor(Color(.systemRed))
-                                        .transition(.scale.combined(with: .opacity))
-                                }
-                            }
-                            .frame(width: 35, height: 35)
-                            .animation(.easeInOut(duration: 0.2), value: isMainScreenEditMode)
+                            Image(systemName: isMainScreenEditMode ? "checkmark" : "trash")
+                                .font(.system(size: 17))
+                                .foregroundColor(isMainScreenEditMode ? Color(.systemGray) : Color(.systemRed))
+                                .frame(width: 35, height: 35)
 
                         }
                         .buttonStyle(.plain)

@@ -54,120 +54,48 @@ struct PlaybackPage: View {
     }
     
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                // Header
-                HStack {
-                    Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
-                        .font(.system(size: 35, weight: .bold))
+        VStack(spacing: 20) {
+            // Header
+            HStack {
+                Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
+                    .font(.system(size: 35, weight: .bold))
+                    .foregroundColor(.white)
+                Spacer()
+                Button(action: {
+                    showShareSheet = true
+                }) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 20))
                         .foregroundColor(.white)
-                    Spacer()
-                    Button(action: {
-                        showShareSheet = true
-                    }) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white)
-                            .frame(width: 30, height: 30)
-                    }
-                }
-                .padding(.horizontal)
-                
-                // Speed Gauge
-                GeometryReader { geometry in
-                    speedGauge(geometry: geometry, displayedSpeed: Int(locationHandler.speedMPH.rounded()), animatedSpeed: .constant(locationHandler.speedMPH))
-                }
-                .frame(height: 50)
-                .padding(.horizontal)
-                
-                // Track List
-                ScrollView {
-                    VStack(spacing: 20) {
-                        trackList()
-                            .padding(.horizontal)
-                    }
+                        .frame(width: 30, height: 30)
                 }
             }
-            .padding()
-            .ignoresSafeArea(.keyboard)
-            .sheet(isPresented: $showShareSheet) {
-                ShareSheet(activityItems: prepareForSharing())
+            .padding(.horizontal)
+            
+            // Speed Gauge
+            GeometryReader { geometry in
+                speedGauge(geometry: geometry, displayedSpeed: Int(locationHandler.speedMPH.rounded()), animatedSpeed: .constant(locationHandler.speedMPH))
             }
-            .zIndex(4)
-            .toolbar {
-                ToolbarItemGroup(placement: .bottomBar) {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.5)) {
-                            showPlaybackPage = false
-                        }
-                    }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16))
-                    }
-                    .buttonStyle(CircularButtonStyle(size: 32))
-                    
-                    if !audioController.isSoundtrackPlaying {
-                        Button(action: {
-                            let impact = UIImpactFeedbackGenerator(style: .medium)
-                            impact.impactOccurred()
-                            audioController.masterPlaybackTime = 0
-                            for player in audioController.currentPlayers {
-                                player?.currentTime = 0
-                            }
-                            audioController.updateNowPlayingInfo()
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                isRewindShowingCheckmark = true
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    isRewindShowingCheckmark = false
-                                }
-                            }
-                        }) {
-                            Image(systemName: isRewindShowingCheckmark ? "checkmark" : "backward.end.fill")
-                                .font(.system(size: 14))
-                        }
-                        .buttonStyle(CircularButtonStyle(size: 32))
-                        .transition(.scale.combined(with: .opacity))
-                        .animation(.default, value: audioController.isSoundtrackPlaying)
-                    }
-                    Spacer()
-                }
-                
-                ToolbarItemGroup(placement: .bottomBar) {
-                    Button(action: {
-                        if let pending = pendingSoundtrack, audioController.currentSoundtrackTitle != pending.title {
-                            if audioController.isSoundtrackPlaying {
-                                audioController.toggleSoundtrackPlayback()
-                            }
-                            audioController.setCurrentSoundtrack(tracks: pending.tracks, players: pending.players, title: pending.title)
-                            audioController.toggleSoundtrackPlayback()
-                        } else {
-                            audioController.toggleSoundtrackPlayback()
-                        }
-                    }) {
-                        Image(systemName: audioController.isSoundtrackPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 24))
-                    }
-                    .buttonStyle(CircularButtonStyle(size: 44))
-                }
-                
-                ToolbarItemGroup(placement: .bottomBar) {
-                    Spacer()
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.5)) {
-                            showEditPage = true
-                        }
-                    }) {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 16))
-                    }
-                    .buttonStyle(CircularButtonStyle(size: 32))
+            .frame(height: 50)
+            .padding(.horizontal)
+            
+            // Track List
+            ScrollView {
+                VStack(spacing: 20) {
+                    trackList()
+                        .padding(.horizontal)
                 }
             }
-            .toolbarBackground(.visible, for: .bottomBar)
-            .toolbarBackground(Color.clear, for: .bottomBar)
+            
+            // Playback Controls
+            playbackButtons()
         }
+        .padding()
+        .ignoresSafeArea(.keyboard)
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheet(activityItems: prepareForSharing())
+        }
+        .zIndex(4)
     }
     
     @ViewBuilder
@@ -322,16 +250,88 @@ struct PlaybackPage: View {
             }
         }
     }
-}
-
-struct CircularButtonStyle: ButtonStyle {
-    let size: CGFloat
     
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundColor(.white)
-            .frame(width: size, height: size)
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.2), value: configuration.isPressed)
+    @ViewBuilder
+    private func playbackButtons() -> some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 80) {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        showPlaybackPage = false
+                    }
+                }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 20))
+                        .foregroundColor(.white)
+                        .frame(width: 50, height: 50)
+                        .background(Color.white.opacity(0.2))
+                        .clipShape(Circle())
+                }
+                .overlay(
+                    Button(action: {
+                        let impact = UIImpactFeedbackGenerator(style: .medium)
+                        impact.impactOccurred()
+                        audioController.masterPlaybackTime = 0
+                        for player in audioController.currentPlayers {
+                            player?.currentTime = 0
+                        }
+                        audioController.updateNowPlayingInfo()
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            isRewindShowingCheckmark = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isRewindShowingCheckmark = false
+                            }
+                        }
+                    }) {
+                        Image(systemName: isRewindShowingCheckmark ? "checkmark" : "backward.end.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Color.white.opacity(0.2))
+                            .clipShape(Circle())
+                    }
+                    .opacity(audioController.isSoundtrackPlaying ? 0 : 1)
+                    .offset(x: 60)
+                )
+                
+                Button(action: {
+                    if let pending = pendingSoundtrack, audioController.currentSoundtrackTitle != pending.title {
+                        if audioController.isSoundtrackPlaying {
+                            audioController.toggleSoundtrackPlayback()
+                        }
+                        audioController.setCurrentSoundtrack(tracks: pending.tracks, players: pending.players, title: pending.title)
+                        audioController.toggleSoundtrackPlayback()
+                    } else {
+                        audioController.toggleSoundtrackPlayback()
+                    }
+                }) {
+                    Image(systemName: audioController.isSoundtrackPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 30))
+                        .foregroundColor(.white)
+                        .frame(width: 70, height: 70)
+                        .background(Color.white.opacity(0.2))
+                        .clipShape(Circle())
+                }
+
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        showEditPage = true
+                    }
+                }) {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 20))
+                        .foregroundColor(.white)
+                        .frame(width: 50, height: 50)
+                        .background(Color.white.opacity(0.2))
+                        .clipShape(Circle())
+                }
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 8)
+            .background(Color.clear)
+        }
     }
 } 

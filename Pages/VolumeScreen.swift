@@ -11,8 +11,8 @@ struct VolumeScreen: View {
     @Binding var createAdditionalTitles: [String]
     
     private func mapVolume(_ percentage: Double) -> Float {
-        let mapped = Float((percentage + 100) / 100)
-        return max(0.0, min(2.0, mapped))
+        let mapped = (percentage + 100) / 100
+        return Float(max(0.0, min(2.0, mapped)))
     }
     
     var body: some View {
@@ -32,7 +32,7 @@ struct VolumeScreen: View {
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 16)
                                     .stroke(Color.white.opacity(0.3), lineWidth: 3)
-                                        )
+                                )
                                 .frame(width: geometry.size.width, height: 108)
                                 .cornerRadius(16)
                                 .clipped()

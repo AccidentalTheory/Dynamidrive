@@ -1238,7 +1238,7 @@ struct ContentView: View {
     
     // MARK: - Volume Page
     private var volumeScreen: some View {
-        VolumeScreen(
+        VolumeScreen( 
             showVolumePage: $showVolumePage,
             createBaseTitle: $createBaseTitle,
             createBaseVolume: $createBaseVolume,
