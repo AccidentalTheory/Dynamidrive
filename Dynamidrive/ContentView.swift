@@ -1241,7 +1241,10 @@ struct ContentView: View {
         VolumeScreen( 
             showVolumePage: $showVolumePage,
             createBaseTitle: $createBaseTitle,
-            createBaseVolume: $createBaseVolume,
+            createBaseVolume: Binding(
+                get: { Double(createBaseVolume) },  // Convert Float to Double for VolumeScreen
+                set: { createBaseVolume = Float($0) }  // Convert Double back to Float
+            ),
             createBaseAudioURL: $createBaseAudioURL,
             createBasePlayer: $createBasePlayer,
             createAdditionalZStacks: $createAdditionalZStacks,
