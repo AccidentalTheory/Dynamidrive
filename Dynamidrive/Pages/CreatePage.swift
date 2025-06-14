@@ -132,7 +132,7 @@ struct CreatePage: View {
     }
     
     private var dynamicAudioStacks: some View {
-        ForEach(createAdditionalZStacks.indices, id: \.self) { index in
+        ForEach(createAdditionalZStacks) { zstack in
             GeometryReader { geometry in
                 ZStack {
                     Color.black.opacity(0.3)
@@ -143,7 +143,7 @@ struct CreatePage: View {
                         .frame(width: geometry.size.width, height: 108)
                         .cornerRadius(16)
                         .clipped()
-                    Text(createAdditionalTitles[index])
+                    Text(createAdditionalTitles[createAdditionalZStacks.firstIndex(where: { $0.id == zstack.id }) ?? 0])
                         .font(.system(size: 35, weight: .semibold))
                         .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
                         .minimumScaleFactor(0.3)
@@ -153,13 +153,15 @@ struct CreatePage: View {
                         .foregroundColor(.white)
                         .padding(.leading, 16)
                     Button(action: {
-                        if createAdditionalZStacks[index].audioURL == nil {
-                            createAdditionalZStacks[index].showingFilePicker = true
-                        } else {
-                            togglePlayback(at: index)
+                        if let index = createAdditionalZStacks.firstIndex(where: { $0.id == zstack.id }) {
+                            if createAdditionalZStacks[index].audioURL == nil {
+                                createAdditionalZStacks[index].showingFilePicker = true
+                            } else {
+                                togglePlayback(at: index)
+                            }
                         }
                     }) {
-                        Image(systemName: createAdditionalZStacks[index].audioURL == nil ? "plus" : (createAdditionalZStacks[index].isPlaying ? "pause" : "play"))
+                        Image(systemName: zstack.audioURL == nil ? "plus" : (zstack.isPlaying ? "pause" : "play"))
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)

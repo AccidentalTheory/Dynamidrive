@@ -267,6 +267,7 @@ struct PlaybackPage: View {
                         .frame(width: 50, height: 50)
                         .background(Color.white.opacity(0.2))
                         .clipShape(Circle())
+                        .glassEffect(.regular.tint(.clear).interactive())
                 }
                 .overlay(
                     Button(action: {
@@ -292,6 +293,7 @@ struct PlaybackPage: View {
                             .frame(width: 40, height: 40)
                             .background(Color.white.opacity(0.2))
                             .clipShape(Circle())
+                            .glassEffect(.regular.tint(.clear).interactive())
                     }
                     .opacity(audioController.isSoundtrackPlaying ? 0 : 1)
                     .offset(x: 60)
@@ -314,6 +316,7 @@ struct PlaybackPage: View {
                         .frame(width: 70, height: 70)
                         .background(Color.white.opacity(0.2))
                         .clipShape(Circle())
+                        .glassEffect(.regular.tint(.clear).interactive())
                 }
 
                 Button(action: {
@@ -327,6 +330,7 @@ struct PlaybackPage: View {
                         .frame(width: 50, height: 50)
                         .background(Color.white.opacity(0.2))
                         .clipShape(Circle())
+                        .glassEffect(.regular.tint(.clear).interactive())
                 }
             }
             .padding(.horizontal)
@@ -334,4 +338,4 @@ struct PlaybackPage: View {
             .background(Color.clear)
         }
     }
-} 
+}

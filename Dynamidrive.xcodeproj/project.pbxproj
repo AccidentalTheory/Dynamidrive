@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		6F0E40172D76FF79004F288E /* AudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6F0E40162D76FF79004F288E /* AudioKit */; };
-		6F0EC2FE2DE02E1500D96148 /* Glur in Frameworks */ = {isa = PBXBuildFile; productRef = 6F0EC2FD2DE02E1500D96148 /* Glur */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,7 +69,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6F0EC2FE2DE02E1500D96148 /* Glur in Frameworks */,
 				6F0E40172D76FF79004F288E /* AudioKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -141,7 +139,6 @@
 			name = Dynamidrive;
 			packageProductDependencies = (
 				6F0E40162D76FF79004F288E /* AudioKit */,
-				6F0EC2FD2DE02E1500D96148 /* Glur */,
 			);
 			productName = Dynamidrive;
 			productReference = 6FDD4A0E2D74039500F9705A /* Dynamidrive.app */;
@@ -228,7 +225,6 @@
 			packageReferences = (
 				6F0E40152D76FF79004F288E /* XCRemoteSwiftPackageReference "AudioKit" */,
 				6F0EC2FB2DE0220D00D96148 /* XCRemoteSwiftPackageReference "VariableBlur" */,
-				6F0EC2FC2DE02B6F00D96148 /* XCRemoteSwiftPackageReference "Glur" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FDD4A0F2D74039500F9705A /* Products */;
@@ -318,6 +314,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Dynamidrive/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_NSFocusStatusUsageDescription = "We can use Driving Focus to limit distractions while driving.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Dynamidrive needs your location to adjust music based on your speed, even when the app is in the background.";
 				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "Dynamidrive needs your location to adjust music based on your speed, even when the app is in the background.";
@@ -362,6 +359,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Dynamidrive/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_NSFocusStatusUsageDescription = "We can use Driving Focus to limit distractions while driving.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Dynamidrive needs your location to adjust music based on your speed, even when the app is in the background.";
 				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "Dynamidrive needs your location to adjust music based on your speed, even when the app is in the background.";
@@ -641,14 +639,6 @@
 				kind = branch;
 			};
 		};
-		6F0EC2FC2DE02B6F00D96148 /* XCRemoteSwiftPackageReference "Glur" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/joogps/Glur.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.4;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -656,11 +646,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6F0E40152D76FF79004F288E /* XCRemoteSwiftPackageReference "AudioKit" */;
 			productName = AudioKit;
-		};
-		6F0EC2FD2DE02E1500D96148 /* Glur */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 6F0EC2FC2DE02B6F00D96148 /* XCRemoteSwiftPackageReference "Glur" */;
-			productName = Glur;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

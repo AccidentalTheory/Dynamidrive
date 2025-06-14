@@ -4,7 +4,7 @@ import AVFoundation
 import UniformTypeIdentifiers
 import UIKit
 import MediaPlayer
-import Glur
+
 import MapKit
 import TipKit
 
@@ -368,6 +368,13 @@ struct ContentView: View {
     @State private var isReturningFromConfigure = false
     @State private var createPageRemovalDirection: Edge = .leading
     @State private var volumePageRemovalDirection: Edge = .leading
+    @AppStorage("mapStyle") private var mapStyle: MapStyle = .standard
+    
+    enum MapStyle: String {
+        case standard
+        case satellite
+    }
+    
     @State private var configurePageInsertionDirection: Edge = .trailing
     @State private var shouldResetPlaybackPage = false
     @State private var createPageInsertionDirection: Edge = .trailing
@@ -442,15 +449,6 @@ struct ContentView: View {
     @State private var currentPage: AppPage = .loading
     @State private var previousPage: AppPage? = nil
     
-    struct ZStackData: Identifiable {
-        let id: Int
-        var offset: CGFloat = 0
-        var audioURL: URL?
-        var player: AVAudioPlayer?
-        var isPlaying = false
-        var showingFilePicker = false
-        var volume: Float = 0.0
-    }
     
     private var documentsDirectory: URL {
         let fileManager = FileManager.default
@@ -487,10 +485,10 @@ struct ContentView: View {
                 Map(position: $cameraPosition, interactionModes: []) {
                     UserAnnotation()
                 }
-                .mapStyle(.standard)
+                .mapStyle(mapStyle == .satellite ? .imagery(elevation: .realistic) : .standard)
                 .mapControlVisibility(.hidden)
                 .ignoresSafeArea(.all)
-                .blur(radius: 32)
+                // .blur(radius: 32)
                 .onAppear {
                     // Set initial camera position to follow user location
                     cameraPosition = .userLocation(followsHeading: false, fallback: .camera(MapCamera(
@@ -501,8 +499,8 @@ struct ContentView: View {
                 }
                 
                 Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .ignoresSafeArea(.all)
+                 .fill(.ultraThinMaterial)
+                 .ignoresSafeArea(.all)
                 
                 // Handle initial load with opacity-based fade
                 if !hasCompletedInitialLoad {
@@ -524,7 +522,7 @@ struct ContentView: View {
                         case .main:
                             mainScreen
                                 .transition(.asymmetric(
-                                    insertion: previousPage == .import ? .move(edge: .trailing) : (isReturningFromConfigure ? .move(edge: .trailing) : (previousPage == .create || previousPage == .playback ? .move(edge: .leading) : .move(edge: .trailing))),
+                                    insertion: previousPage == .masterSettings ? .move(edge: .leading) : (previousPage == .import ? .move(edge: .trailing) : (isReturningFromConfigure ? .move(edge: .trailing) : (previousPage == .create || previousPage == .playback ? .move(edge: .leading) : .move(edge: .trailing)))),
                                     removal: .move(edge: .leading)))
                         case .create:
                             createScreen
@@ -573,6 +571,12 @@ struct ContentView: View {
                                 .transition(.asymmetric(
                                     insertion: .move(edge: .trailing),
                                     removal: currentPage == .import ? .move(edge: .trailing) : .move(edge: .leading)
+                                ))
+                        case .masterSettings:
+                            MasterSettings(currentPage: $currentPage)
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: .trailing),
+                                    removal: .move(edge: .trailing)
                                 ))
                         }
                     }
@@ -771,6 +775,23 @@ struct ContentView: View {
             if newPage == .playback || newPage == .settings {
                 setDeviceOrientation(.portrait)
             }
+            
+            // Handle masterSettings page transition
+            if newPage == .masterSettings {
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    previousPage = oldPage
+                }
+            } else if newPage == .main && oldPage == .masterSettings {
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    previousPage = .masterSettings
+                    // Force main to slide in from left
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation(.easeInOut(duration: 0.5)) {
+                            currentPage = .main
+                        }
+                    }
+                }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
             if audioController.isSoundtrackPlaying {
@@ -869,10 +890,7 @@ struct ContentView: View {
             }
             .frame(height: 150)
             .allowsHitTesting(false)
-            .glur(radius: 8.0,
-                  offset: 0.3,
-                  interpolation: 0.4,
-                  direction: .down)
+
 
             // Fixed bottom controls
             VStack {
@@ -1083,17 +1101,17 @@ struct ContentView: View {
     }
     
     private var dynamicAudioStacks: some View {
-        ForEach(createAdditionalZStacks.indices, id: \.self) { index in
-            GeometryReader { geometry in
-                dynamicAudioCard(geometry: geometry, index: index)
-                    .offset(x: createAdditionalZStacks[index].offset)
-                    .gesture(dynamicAudioGesture(index: index))
+        ForEach(Array(createAdditionalZStacks.enumerated()), id: \.element.id) { index, stack in
+            if stack.audioURL != nil {
+                GeometryReader { geometry in
+                    additionalAudioZStack(geometry: geometry, index: index)
+                }
+                .frame(height: 160)
             }
-            .frame(height: 108)
         }
     }
     
-    private func dynamicAudioCard(geometry: GeometryProxy, index: Int) -> some View {
+    private func additionalAudioZStack(geometry: GeometryProxy, index: Int) -> some View {
         ZStack {
             Color(red: 0/255, green: 0/255, blue: 0/255)
                 .opacity(0.3)
@@ -1101,7 +1119,7 @@ struct ContentView: View {
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(Color.white.opacity(0.3), lineWidth: 3)
                 )
-                .frame(width: geometry.size.width, height: 108)
+                .frame(width: geometry.size.width, height: 160)
                 .cornerRadius(16)
                 .clipped()
             Text(index < createAdditionalTitles.count ? createAdditionalTitles[index] : "Audio \(index + 1)")
@@ -1790,10 +1808,7 @@ struct ContentView: View {
             }
             .frame(height: 150)
             .allowsHitTesting(false)
-            .glur(radius: 8.0,
-                  offset: 0.3,
-                  interpolation: 0.4,
-                  direction: .down)
+
 
             // Fixed bottom controls
             VStack {
@@ -2440,10 +2455,7 @@ struct ContentView: View {
             }
             .frame(height: 150)
             .allowsHitTesting(false)
-            .glur(radius: 8.0,
-                  offset: 0.3,
-                  interpolation: 0.4,
-                  direction: .down)
+
             
             // Fixed bottom controls
             VStack {
@@ -2571,10 +2583,7 @@ struct ContentView: View {
             }
             .frame(height: 150)
             .allowsHitTesting(false)
-            .glur(radius: 8.0,
-                  offset: 0.3,
-                  interpolation: 0.4,
-                  direction: .down)
+
             
             // Fixed bottom controls
             VStack {

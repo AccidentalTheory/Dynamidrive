@@ -18,97 +18,122 @@ struct MainScreen: View {
     var deleteSoundtrack: (Soundtrack) -> Void
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                VStack(spacing: 40) {
-                    if soundtracks.isEmpty {
-                        Spacer()
-                        VStack(spacing: 0) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 160))
-                                .foregroundColor(.white)
-                                .opacity(0.4)
-                                .frame(width: 180, height: 180)
-                            Text("Press the new button to make your first soundtrack")
-                                .font(.system(size: 24, weight: .medium))
-                                .foregroundColor(.white)
-                                .opacity(0.4)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        Spacer()
-                        Spacer()
-                    } else {
-                        ScrollView(.vertical, showsIndicators: false) {
-                            VStack(spacing: 10) {
-                                ForEach(soundtracks) { soundtrack in
-                                    soundtrackCard(soundtrack: soundtrack)
-                                        .frame(height: 108)
-                                }
-                            }
-                            .animation(.easeInOut(duration: 0.3), value: soundtracks)
-                            .padding(.horizontal)
-                            .padding(.top, 120)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .edgesIgnoringSafeArea(.all)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            .navigationTitle("Dynamidrive")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.5)) {
-                                resetCreatePage()
-                                showCreatePage = true
-                                showImportPage = false
-                                importedSoundtrackURL = nil
-                                currentPage = .create
-                            }
-                        }) {
-                            Label("New Soundtrack", systemImage: "plus")
-                        }
-                        
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.5)) {
-                                showImportPage = true
-                                currentPage = .create
-                            }
-                        }) {
-                            Label("Import Existing", systemImage: "square.and.arrow.down")
-                        }
-                    } label: {
+        ZStack {
+            // Main Content
+            VStack(spacing: 40) {
+                if soundtracks.isEmpty {
+                    Spacer()
+                    VStack(spacing: 0) {
                         Image(systemName: "plus")
-                            .font(.system(size: 17))
+                            .font(.system(size: 160))
+                            .foregroundColor(.white)
+                            .opacity(0.4)
+                            .frame(width: 180, height: 180)
+                        Text("Press the new button to make your first soundtrack")
+                            .font(.system(size: 24, weight: .medium))
+                            .foregroundColor(.white)
+                            .opacity(0.4)
+                            .multilineTextAlignment(.center)
                     }
-                    .menuStyle(.borderlessButton)
-                    .menuIndicator(.hidden)
-                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal)
+                    Spacer()
+                    Spacer()
+                } else {
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 10) {
+                            Color.clear.frame(height: UIScreen.main.bounds.height * 0.08)
+                            ForEach(soundtracks) { soundtrack in
+                                soundtrackCard(soundtrack: soundtrack)
+                                    .frame(height: 108)
+                                    .padding(.horizontal)
+                            }
+                        }
+                        .animation(.easeInOut(duration: 0.3), value: soundtracks)
+                        .padding(.bottom, 100)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                
-                if !soundtracks.isEmpty {
-                    ToolbarItem(placement: .bottomBar) {
-                        Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            // Blur Layer
+            VStack(spacing: 0) {
+                ProgressiveBlurView()
+                    .frame(height: UIScreen.main.bounds.height * 0.15)
+                    .ignoresSafeArea()
+                Spacer()
+            }
+            .ignoresSafeArea()
+            
+            // Header Layer
+            VStack {
+                HStack {
+                    Text("Dynamidrive")
+                        .font(.system(size: 35, weight: .medium))
+                        .foregroundColor(.white)
+                    Spacer()
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.5)) {
+                            resetCreatePage()
+                            showCreatePage = true
+                            showImportPage = false
+                            importedSoundtrackURL = nil
+                            currentPage = .create
+                        }
+                    }) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .frame(width: 50, height: 50)
+                            .background(Color.white.opacity(0.2))
+                            .clipShape(Circle())
+                            .glassEffect(.regular.tint(.clear).interactive())
                     }
-                    
-                    ToolbarItem(placement: .bottomBar) {
+                }
+                .padding(.horizontal)
+                .padding(.top, UIScreen.main.bounds.height * 0.01)
+                Spacer()
+            }
+            
+            // Bottom Buttons Container
+            if !soundtracks.isEmpty {
+                VStack {
+                    Spacer()
+                    HStack {
+                        // Left side - Edit button
                         Button(action: {
                             let impact = UIImpactFeedbackGenerator(style: .medium)
                             impact.impactOccurred()
                             isMainScreenEditMode.toggle()
                         }) {
-                            Image(systemName: isMainScreenEditMode ? "checkmark" : "trash")
-                                .font(.system(size: 17))
-                                .foregroundColor(isMainScreenEditMode ? Color(.systemGray) : Color(.systemRed))
-                                .frame(width: 35, height: 35)
-
+                            Image(systemName: isMainScreenEditMode ? "checkmark" : "minus.circle")
+                                .font(.system(size: 20))
+                                .foregroundColor(isMainScreenEditMode ? .gray : .white)
+                                .frame(width: 50, height: 50)
+                                .background(Color.white.opacity(0.2))
+                                .clipShape(Circle())
+                                .glassEffect(.regular.tint(.clear).interactive())
                         }
-                        .buttonStyle(.plain)
+                        
+                        Spacer()
+                        
+                        // Right side - Settings button
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.5)) {
+                                currentPage = .masterSettings
+                            }
+                        }) {
+                            Image(systemName: "gear")
+                                .font(.system(size: 20))
+                                .foregroundColor(.white)
+                                .frame(width: 50, height: 50)
+                                .background(Color.white.opacity(0.2))
+                                .clipShape(Circle())
+                                .glassEffect(.regular.tint(.clear).interactive())
+                        }
                     }
+                    .padding()
                 }
             }
         }
@@ -116,7 +141,10 @@ struct MainScreen: View {
     
     private func soundtrackCard(soundtrack: Soundtrack) -> some View {
         ZStack {
-            Color(red: 28/255, green: 28/255, blue: 28/255)
+            Rectangle()
+                .fill(.clear)
+                .background(.ultraThinMaterial)
+                .overlay(Color.black.opacity(0.4))
                 .frame(height: 108)
                 .cornerRadius(16)
             Button(action: {

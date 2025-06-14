@@ -1,13 +1,13 @@
 import SwiftUI
 import AVFoundation
-import Glur
+
 
 struct ConfigurePage: View {
     @Binding var showConfigurePage: Bool
     @Binding var showCreatePage: Bool
     @Binding var showVolumePage: Bool
     @Binding var createBaseAudioURL: URL?
-    @Binding var createAdditionalZStacks: [ContentView.ZStackData]
+    @Binding var createAdditionalZStacks: [ZStackData]
     @Binding var createAdditionalTitles: [String]
     @Binding var createAdditionalAlwaysPlaying: [Bool]
     @Binding var createAudio1MinimumSpeed: Int
@@ -43,10 +43,6 @@ struct ConfigurePage: View {
             }
             .frame(height: 150)
             .allowsHitTesting(false)
-            .glur(radius: 8.0,
-                  offset: 0.3,
-                  interpolation: 0.4,
-                  direction: .down)
 
             // Fixed bottom controls
             VStack {
@@ -282,8 +278,8 @@ struct ConfigurePage: View {
                 }
                 .frame(height: 108)
             }
-            ForEach(createAdditionalZStacks.indices, id: \.self) { index in
-                if createAdditionalZStacks[index].audioURL != nil {
+            ForEach(Array(createAdditionalZStacks.enumerated()), id: \.element.id) { index, stack in
+                if stack.audioURL != nil {
                     GeometryReader { geometry in
                         additionalAudioZStack(geometry: geometry, index: index)
                     }
@@ -292,4 +288,4 @@ struct ConfigurePage: View {
             }
         }
     }
-} 
+}

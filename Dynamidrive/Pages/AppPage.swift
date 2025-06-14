@@ -10,6 +10,7 @@ enum AppPage: Equatable {
     case edit
     case speedDetail
     case settings
+    case masterSettings
     case `import`
     case aiUpload
 } 
