@@ -369,10 +369,35 @@ struct ContentView: View {
     @State private var createPageRemovalDirection: Edge = .leading
     @State private var volumePageRemovalDirection: Edge = .leading
     @AppStorage("mapStyle") private var mapStyle: MapStyle = .standard
+    @AppStorage("backgroundType") private var backgroundType: BackgroundType = .map
+    
+    // Gradient Start Color Components
+    @AppStorage("gradientStartRed") private var gradientStartRed: Double = 0
+    @AppStorage("gradientStartGreen") private var gradientStartGreen: Double = 122/255
+    @AppStorage("gradientStartBlue") private var gradientStartBlue: Double = 1.0
+    
+    // Gradient End Color Components
+    @AppStorage("gradientEndRed") private var gradientEndRed: Double = 88/255
+    @AppStorage("gradientEndGreen") private var gradientEndGreen: Double = 86/255
+    @AppStorage("gradientEndBlue") private var gradientEndBlue: Double = 214/255
+    
+    // Computed properties for gradient colors
+    private var gradientStartColor: Color {
+        Color(red: gradientStartRed, green: gradientStartGreen, blue: gradientStartBlue)
+    }
+    
+    private var gradientEndColor: Color {
+        Color(red: gradientEndRed, green: gradientEndGreen, blue: gradientEndBlue)
+    }
     
     enum MapStyle: String {
         case standard
         case satellite
+    }
+    
+    enum BackgroundType: String, Codable {
+        case map
+        case gradient
     }
     
     @State private var configurePageInsertionDirection: Edge = .trailing
@@ -482,25 +507,33 @@ struct ContentView: View {
         GeometryReader { geometry in
             ZStack {
                 // Fixed map and blur background for all pages
-                Map(position: $cameraPosition, interactionModes: []) {
-                    UserAnnotation()
-                }
-                .mapStyle(mapStyle == .satellite ? .imagery(elevation: .realistic) : .standard)
-                .mapControlVisibility(.hidden)
-                .ignoresSafeArea(.all)
-                // .blur(radius: 32)
-                .onAppear {
-                    // Set initial camera position to follow user location
-                    cameraPosition = .userLocation(followsHeading: false, fallback: .camera(MapCamera(
-                        centerCoordinate: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
-                        distance: 1000,
-                        heading: 0
-                    )))
+                if backgroundType == .map {
+                    Map(position: $cameraPosition, interactionModes: []) {
+                        UserAnnotation()
+                    }
+                    .mapStyle(mapStyle == .satellite ? .imagery(elevation: .realistic) : .standard)
+                    .mapControlVisibility(.hidden)
+                    .ignoresSafeArea(.all)
+                    .onAppear {
+                        // Set initial camera position to follow user location
+                        cameraPosition = .userLocation(followsHeading: false, fallback: .camera(MapCamera(
+                            centerCoordinate: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
+                            distance: 1000,
+                            heading: 0
+                        )))
+                    }
+                } else {
+                    LinearGradient(
+                        gradient: Gradient(colors: [gradientStartColor, gradientEndColor]),
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .ignoresSafeArea(.all)
                 }
                 
                 Rectangle()
-                 .fill(.ultraThinMaterial)
-                 .ignoresSafeArea(.all)
+                    .fill(.ultraThinMaterial)
+                    .ignoresSafeArea(.all)
                 
                 // Handle initial load with opacity-based fade
                 if !hasCompletedInitialLoad {
