@@ -569,15 +569,7 @@ struct ContentView: View {
                             volumeScreen
                                 .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: volumePageRemovalDirection)))
                         case .playback:
-                            PlaybackPage(
-                                showPlaybackPage: $showPlaybackPage,
-                                pendingSoundtrack: $pendingSoundtrack,
-                                showEditPage: $showEditPage,
-                                showSpeedDetailPage: $showSpeedDetailPage,
-                                isRewindShowingCheckmark: $isRewindShowingCheckmark
-                            )
-                            .environmentObject(locationHandler)
-                            .transition(.asymmetric(insertion: .move(edge: playbackPageInsertionDirection), removal: .move(edge: playbackPageRemovalDirection)))
+                            EmptyView() // Remove the direct view presentation since we'll use a sheet
                         case .edit:
                             editScreen
                                 .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
@@ -720,13 +712,11 @@ struct ContentView: View {
             }
         }
         .onChange(of: showPlaybackPage, initial: false) { _, newValue in
-            withAnimation(.easeInOut(duration: 0.5)) {
-                let oldPage = currentPage
-                previousPage = newValue ? oldPage : (oldPage == .volume ? .volume : .playback)
-                currentPage = newValue ? .playback : previousPage == .volume ? .volume : .main
-                isReturningFromConfigure = false
-                volumePageRemovalDirection = .leading // Reset
-                configurePageInsertionDirection = .trailing // Reset
+            if !newValue {
+                // When closing the playback sheet, return to the previous page
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    currentPage = previousPage == .volume ? .volume : .main
+                }
             }
         }
         .onChange(of: locationHandler.speedMPH) { oldValue, newSpeed in
@@ -843,6 +833,19 @@ struct ContentView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
+        .sheet(isPresented: $showPlaybackPage) {
+            PlaybackPage(
+                showPlaybackPage: $showPlaybackPage,
+                pendingSoundtrack: $pendingSoundtrack,
+                showEditPage: $showEditPage,
+                showSpeedDetailPage: $showSpeedDetailPage,
+                isRewindShowingCheckmark: $isRewindShowingCheckmark
+            )
+            .environmentObject(locationHandler)
+            .presentationDetents([.height(100), .height(200), .large], selection: .constant(.height(200)))
+            .presentationDragIndicator(.visible)
+            .presentationBackground(.clear)
+        }
     }
     
     
@@ -858,6 +861,7 @@ struct ContentView: View {
             soundtracks: $soundtracks,
             isMainScreenEditMode: $isMainScreenEditMode,
             soundtracksBeingDeleted: $soundtracksBeingDeleted,
+            previousPage: $previousPage, // Add this binding
             resetCreatePage: resetCreatePage,
             deleteSoundtrack: deleteSoundtrack
         )

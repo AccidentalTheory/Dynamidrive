@@ -3,6 +3,14 @@ import AVFoundation
 import MediaPlayer
 import MapKit
 
+private struct DetentHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = .infinity
+    
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct PlaybackPage: View {
     @Binding var showPlaybackPage: Bool
     @Binding var pendingSoundtrack: Soundtrack?
@@ -12,6 +20,8 @@ struct PlaybackPage: View {
     @EnvironmentObject private var audioController: AudioController
     @EnvironmentObject private var locationHandler: LocationHandler
     @State private var showShareSheet = false
+    @State private var isCompactHeight = false
+    @State private var currentHeight: CGFloat = .infinity
     
     @State private var minSpeedScale: [Int: CGFloat] = [:]
     @State private var maxSpeedScale: [Int: CGFloat] = [:]
@@ -54,48 +64,102 @@ struct PlaybackPage: View {
     }
     
     var body: some View {
-        VStack(spacing: 20) {
-            // Header
-            HStack {
-                Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
-                    .font(.system(size: 35, weight: .bold))
-                    .foregroundColor(.white)
-                Spacer()
-                Button(action: {
-                    showShareSheet = true
-                }) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 20))
-                        .foregroundColor(.white)
-                        .frame(width: 30, height: 30)
-                }
-            }
-            .padding(.horizontal)
-            
-            // Speed Gauge
-            GeometryReader { geometry in
-                speedGauge(geometry: geometry, displayedSpeed: Int(locationHandler.speedMPH.rounded()), animatedSpeed: .constant(locationHandler.speedMPH))
-            }
-            .frame(height: 50)
-            .padding(.horizontal)
-            
-            // Track List
-            ScrollView {
-                VStack(spacing: 20) {
-                    trackList()
+        GeometryReader { geometry in
+            Group {
+                if isCompactHeight {
+                    // Compact view with only playback controls
+                    HStack {
+                        Spacer()
+                        VStack {
+                            if currentHeight > 150 && currentHeight <= 220 { // Show title only in 200 detent
+                                Spacer()
+                                Spacer()
+                                Spacer()
+                                Spacer()
+                                Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
+                                    .font(.system(size: 35, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.bottom, 16)
+                                    .minimumScaleFactor(0.5)
+                                    .lineLimit(1)
+                                    .frame(maxWidth: UIScreen.main.bounds.width * 0.8)
+                                playbackButtons()
+                                Spacer()
+                            } else {
+                                // Center controls in 100-point detent
+                                Spacer()
+                                playbackButtons()
+                                Spacer()
+                            }
+                        }
+                        Spacer()
+                    }
+                } else {
+                    // Full view with all content
+                    VStack(spacing: 20) {
+                        // Header
+                        HStack {
+                            Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
+                                .font(.system(size: 35, weight: .bold))
+                                .foregroundColor(.white)
+                            Spacer()
+                            Button(action: {
+                                showShareSheet = true
+                            }) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.white)
+                                    .frame(width: 30, height: 30)
+                            }
+                        }
                         .padding(.horizontal)
+                        
+                        // Speed Gauge
+                        GeometryReader { geometry in
+                            speedGauge(geometry: geometry, displayedSpeed: Int(locationHandler.speedMPH.rounded()), animatedSpeed: .constant(locationHandler.speedMPH))
+                        }
+                        .frame(height: 50)
+                        .padding(.horizontal)
+                        
+                        // Track List
+                        ScrollView {
+                            VStack(spacing: 20) {
+                                trackList()
+                                    .padding(.horizontal)
+                            }
+                        }
+                        
+                        // Playback Controls
+                        HStack {
+                            Spacer()
+                            playbackButtons()
+                            Spacer()
+                        }
+                    }
+                    .padding(16)
                 }
             }
-            
-            // Playback Controls
-            playbackButtons()
+            .background(.clear)
+            .ignoresSafeArea(.keyboard)
+            .sheet(isPresented: $showShareSheet) {
+                ShareSheet(activityItems: prepareForSharing())
+            }
+            .interactiveDismissDisabled(false)
+            .zIndex(4)
+            .preference(key: DetentHeightPreferenceKey.self, value: geometry.size.height)
+            .onChange(of: geometry.size.height) { oldValue, newValue in
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    currentHeight = newValue
+                    isCompactHeight = newValue <= 220
+                }
+            }
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    currentHeight = geometry.size.height
+                    isCompactHeight = geometry.size.height <= 220
+                }
+            }
         }
-        .padding()
-        .ignoresSafeArea(.keyboard)
-        .sheet(isPresented: $showShareSheet) {
-            ShareSheet(activityItems: prepareForSharing())
-        }
-        .zIndex(4)
     }
     
     @ViewBuilder
@@ -257,11 +321,23 @@ struct PlaybackPage: View {
             Spacer()
             HStack(spacing: 80) {
                 Button(action: {
-                    withAnimation(.easeInOut(duration: 0.5)) {
-                        showPlaybackPage = false
+                    let impact = UIImpactFeedbackGenerator(style: .medium)
+                    impact.impactOccurred()
+                    audioController.masterPlaybackTime = 0
+                    for player in audioController.currentPlayers {
+                        player?.currentTime = 0
+                    }
+                    audioController.updateNowPlayingInfo()
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isRewindShowingCheckmark = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            isRewindShowingCheckmark = false
+                        }
                     }
                 }) {
-                    Image(systemName: "chevron.left")
+                    Image(systemName: isRewindShowingCheckmark ? "checkmark" : "backward.end.fill")
                         .font(.system(size: 20))
                         .foregroundColor(.white)
                         .frame(width: 50, height: 50)
@@ -269,35 +345,6 @@ struct PlaybackPage: View {
                         .clipShape(Circle())
                         .glassEffect(.regular.tint(.clear).interactive())
                 }
-                .overlay(
-                    Button(action: {
-                        let impact = UIImpactFeedbackGenerator(style: .medium)
-                        impact.impactOccurred()
-                        audioController.masterPlaybackTime = 0
-                        for player in audioController.currentPlayers {
-                            player?.currentTime = 0
-                        }
-                        audioController.updateNowPlayingInfo()
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            isRewindShowingCheckmark = true
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                isRewindShowingCheckmark = false
-                            }
-                        }
-                    }) {
-                        Image(systemName: isRewindShowingCheckmark ? "checkmark" : "backward.end.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.white)
-                            .frame(width: 40, height: 40)
-                            .background(Color.white.opacity(0.2))
-                            .clipShape(Circle())
-                            .glassEffect(.regular.tint(.clear).interactive())
-                    }
-                    .opacity(audioController.isSoundtrackPlaying ? 0 : 1)
-                    .offset(x: 60)
-                )
                 
                 Button(action: {
                     if let pending = pendingSoundtrack, audioController.currentSoundtrackTitle != pending.title {

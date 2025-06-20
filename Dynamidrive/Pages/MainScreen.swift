@@ -13,6 +13,7 @@ struct MainScreen: View {
     @Binding var isMainScreenEditMode: Bool
     @Binding var soundtracksBeingDeleted: Set<UUID>
     @EnvironmentObject private var audioController: AudioController
+    @Binding var previousPage: AppPage?
     
     var resetCreatePage: () -> Void
     var deleteSoundtrack: (Soundtrack) -> Void
@@ -57,34 +58,35 @@ struct MainScreen: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             
-            // Blur Layer
-            VStack(spacing: 0) {
-                ProgressiveBlurView()
-                    .frame(height: UIScreen.main.bounds.height * 0.15)
-                    .ignoresSafeArea()
-                Spacer()
-            }
-            .ignoresSafeArea()
-            
             // Header Layer
             VStack {
                 HStack {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.5)) {
+                            currentPage = .masterSettings
+                        }
+                    }) {
+                        Image(systemName: "gear")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .frame(width: 50, height: 50)
+                            .background(Color.white.opacity(0.2))
+                            .clipShape(Circle())
+                            .glassEffect(.regular.tint(.clear).interactive())
+                    }
+                    Spacer()
                     Text("Dynamidrive")
-                        .font(.system(size: 35, weight: .medium))
+                        .font(.system(size: 25, weight: .medium))
                         .foregroundColor(.white)
                     Spacer()
                     Button(action: {
-                        withAnimation(.easeInOut(duration: 0.5)) {
-                            resetCreatePage()
-                            showCreatePage = true
-                            showImportPage = false
-                            importedSoundtrackURL = nil
-                            currentPage = .create
-                        }
+                        let impact = UIImpactFeedbackGenerator(style: .medium)
+                        impact.impactOccurred()
+                        isMainScreenEditMode.toggle()
                     }) {
-                        Image(systemName: "plus")
+                        Image(systemName: isMainScreenEditMode ? "checkmark" : "minus.circle")
                             .font(.system(size: 20))
-                            .foregroundColor(.white)
+                            .foregroundColor(isMainScreenEditMode ? .gray : .white)
                             .frame(width: 50, height: 50)
                             .background(Color.white.opacity(0.2))
                             .clipShape(Circle())
@@ -101,30 +103,17 @@ struct MainScreen: View {
                 VStack {
                     Spacer()
                     HStack {
-                        // Left side - Edit button
-                        Button(action: {
-                            let impact = UIImpactFeedbackGenerator(style: .medium)
-                            impact.impactOccurred()
-                            isMainScreenEditMode.toggle()
-                        }) {
-                            Image(systemName: isMainScreenEditMode ? "checkmark" : "minus.circle")
-                                .font(.system(size: 20))
-                                .foregroundColor(isMainScreenEditMode ? .gray : .white)
-                                .frame(width: 50, height: 50)
-                                .background(Color.white.opacity(0.2))
-                                .clipShape(Circle())
-                                .glassEffect(.regular.tint(.clear).interactive())
-                        }
-                        
                         Spacer()
-                        
-                        // Right side - Settings button
                         Button(action: {
                             withAnimation(.easeInOut(duration: 0.5)) {
-                                currentPage = .masterSettings
+                                resetCreatePage()
+                                showCreatePage = true
+                                showImportPage = false
+                                importedSoundtrackURL = nil
+                                currentPage = .create
                             }
                         }) {
-                            Image(systemName: "gear")
+                            Image(systemName: "plus")
                                 .font(.system(size: 20))
                                 .foregroundColor(.white)
                                 .frame(width: 50, height: 50)
@@ -149,6 +138,7 @@ struct MainScreen: View {
                 .cornerRadius(16)
             Button(action: {
                 pendingSoundtrack = soundtrack
+                previousPage = currentPage
                 withAnimation(.easeInOut(duration: 0.5)) {
                     showPlaybackPage = true
                 }
