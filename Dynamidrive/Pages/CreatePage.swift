@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import UniformTypeIdentifiers
 
 struct CreatePage: View {
     @Binding var showCreatePage: Bool
@@ -21,6 +22,8 @@ struct CreatePage: View {
     @Binding var createAudio1MinimumSpeed: Int
     @Binding var createAudio1MaximumSpeed: Int
     @Binding var showAIUploadPage: Bool
+    
+    @State private var showingFilePickerForIndex: Int? = nil
     
     var body: some View {
         NavigationStack {
@@ -87,6 +90,27 @@ struct CreatePage: View {
                 .ignoresSafeArea(.keyboard)
                 .zIndex(2)
             }
+            .fileImporter(
+                isPresented: $createBaseShowingFilePicker,
+                allowedContentTypes: [.audio],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first {
+                        createBaseAudioURL = url
+                        do {
+                            createBasePlayer = try AVAudioPlayer(contentsOf: url)
+                            createBasePlayer?.prepareToPlay()
+                            createReferenceLength = createBasePlayer?.duration
+                        } catch {
+                            print("Error loading audio: \(error)")
+                        }
+                    }
+                case .failure(let error):
+                    print("Error selecting file: \(error)")
+                }
+            }
         }
     }
     
@@ -132,7 +156,7 @@ struct CreatePage: View {
     }
     
     private var dynamicAudioStacks: some View {
-        ForEach(createAdditionalZStacks) { zstack in
+        ForEach(createAdditionalZStacks.indices, id: \.self) { index in
             GeometryReader { geometry in
                 ZStack {
                     Color.black.opacity(0.3)
@@ -143,7 +167,7 @@ struct CreatePage: View {
                         .frame(width: geometry.size.width, height: 108)
                         .cornerRadius(16)
                         .clipped()
-                    Text(createAdditionalTitles[createAdditionalZStacks.firstIndex(where: { $0.id == zstack.id }) ?? 0])
+                    Text(createAdditionalTitles[index])
                         .font(.system(size: 35, weight: .semibold))
                         .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
                         .minimumScaleFactor(0.3)
@@ -153,15 +177,13 @@ struct CreatePage: View {
                         .foregroundColor(.white)
                         .padding(.leading, 16)
                     Button(action: {
-                        if let index = createAdditionalZStacks.firstIndex(where: { $0.id == zstack.id }) {
-                            if createAdditionalZStacks[index].audioURL == nil {
-                                createAdditionalZStacks[index].showingFilePicker = true
-                            } else {
-                                togglePlayback(at: index)
-                            }
+                        if createAdditionalZStacks[index].audioURL == nil {
+                            showingFilePickerForIndex = index
+                        } else {
+                            togglePlayback(at: index)
                         }
                     }) {
-                        Image(systemName: zstack.audioURL == nil ? "plus" : (zstack.isPlaying ? "pause" : "play"))
+                        Image(systemName: createAdditionalZStacks[index].audioURL == nil ? "plus" : (createAdditionalZStacks[index].isPlaying ? "pause" : "play"))
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)
@@ -173,6 +195,33 @@ struct CreatePage: View {
                 }
             }
             .frame(height: 108)
+            .fileImporter(
+                isPresented: Binding(
+                    get: { showingFilePickerForIndex == index },
+                    set: { if !$0 { showingFilePickerForIndex = nil } }
+                ),
+                allowedContentTypes: [.audio],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first {
+                        createAdditionalZStacks[index].audioURL = url
+                        do {
+                            createAdditionalZStacks[index].player = try AVAudioPlayer(contentsOf: url)
+                            createAdditionalZStacks[index].player?.prepareToPlay()
+                            if createReferenceLength == nil {
+                                createReferenceLength = createAdditionalZStacks[index].player?.duration
+                            }
+                        } catch {
+                            print("Error loading audio: \(error)")
+                        }
+                    }
+                case .failure(let error):
+                    print("Error selecting file: \(error)")
+                }
+                showingFilePickerForIndex = nil
+            }
         }
     }
     
@@ -180,9 +229,12 @@ struct CreatePage: View {
         HStack(spacing: 20) {
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    createAdditionalZStacks.append(ZStackData(id: createNextID))
+                    var newStack = ZStackData(id: createNextID)
+                    newStack.volume = 0.0
+                    createAdditionalZStacks.append(newStack)
                     createAdditionalTitles.append("Audio \(createNextID)")
                     createAdditionalAlwaysPlaying.append(false)
+                    showingFilePickerForIndex = createAdditionalZStacks.count - 1
                     createNextID += 1
                 }
             }) {
