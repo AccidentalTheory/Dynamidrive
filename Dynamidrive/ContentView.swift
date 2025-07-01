@@ -873,423 +873,400 @@ struct ContentView: View {
     }
     
     // MARK: - Create Page
-    private var createScreen: some View {
-        createPageContent
-            .zIndex(1)
-    }
-    
-    private var createPageBackground: some View {
-        VStack(spacing: 0) {
-            GeometryReader { geometry in
-                LinearGradient(
-                    gradient: Gradient(colors: [Color(.darkGray), .black]),
-                    startPoint: .top,
-                    endPoint: UnitPoint(x: 0.5, y: 286 / geometry.size.height)
-                )
-                .frame(height: geometry.size.height)
-            }
+        private var createScreen: some View {
+            createPageContent
+                .zIndex(1)
         }
-        .edgesIgnoringSafeArea(.all)
-    }
-    
-    private var createPageContent: some View {
-        ZStack {
-            // Background content
-            ScrollView {
-                VStack(spacing: 40) {
-                    HStack {
-                        Text(createSoundtrackTitle)
-                            .font(.system(size: 35, weight: .medium))
-                            .foregroundColor(.white)
-                        Spacer()
+        
+        private var createPageBackground: some View {
+            VStack(spacing: 0) {
+                GeometryReader { geometry in
+                    LinearGradient(
+                        gradient: Gradient(colors: [Color(.darkGray), .black]),
+                        startPoint: .top,
+                        endPoint: UnitPoint(x: 0.5, y: 286 / geometry.size.height)
+                    )
+                    .frame(height: geometry.size.height)
+                }
+            }
+            .edgesIgnoringSafeArea(.all)
+        }
+        
+        private var createPageContent: some View {
+            ZStack {
+                // Background content
+                ScrollView {
+                    VStack(spacing: 40) {
+                        HStack {
+                            Text(createSoundtrackTitle)
+                                .font(.system(size: 35, weight: .medium))
+                                .foregroundColor(.white)
+                            Spacer()
+                            Button(action: {
+                                showInfoPage = true
+                            }) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.white)
+                                    .frame(width: 30, height: 30)
+                            }
+                        }
+                        VStack(spacing: 10) {
+                            baseAudioStack
+                            dynamicAudioStacks
+                            addAudioButton
+                        }
+                        Spacer().frame(height: 100) // Add space at bottom for buttons
+                    }
+                    .padding()
+                    .offset(y: -15)
+                }
+
+                // Empty stack between content and buttons
+                ZStack {
+                }
+                .frame(height: 150)
+                .allowsHitTesting(false)
+
+                // Fixed bottom controls
+                VStack {
+                    Spacer()
+                    HStack(spacing: 80) {
                         Button(action: {
-                            showInfoPage = true
+                            pauseAllAudio()
+                            showCreatePage = false
                         }) {
-                            Image(systemName: "info.circle")
+                            Image(systemName: "chevron.left")
                                 .font(.system(size: 20))
                                 .foregroundColor(.white)
-                                .frame(width: 30, height: 30)
-                        }
-                    }
-                    VStack(spacing: 10) {
-                        baseAudioStack
-                        dynamicAudioStacks
-                        addAudioButton
-                    }
-                    Spacer().frame(height: 100) // Add space at bottom for buttons
-                }
-                .padding()
-                .offset(y: -15)
-            }
-
-            // Empty stack between content and buttons
-            ZStack {
-            }
-            .frame(height: 150)
-            .allowsHitTesting(false)
-
-
-            // Fixed bottom controls
-            VStack {
-                Spacer()
-                HStack(spacing: 80) {
-                    Button(action: {
-                        pauseAllAudio()
-                        showCreatePage = false
-                    }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white)
-                            .frame(width: 50, height: 50)
-                            .background(Color.white.opacity(0.2))
-                            .clipShape(Circle())
-                    }
-                    
-                    Button(action: {
-                        if createBaseAudioURL != nil && createAdditionalZStacks.contains(where: { $0.audioURL != nil }) {
-                            showConfigurePage = true
-                        } else {
-                            UINotificationFeedbackGenerator().notificationOccurred(.error)
-                        }
-                    }) {
-                        Text("Next")
-                            .font(.system(size: 24))
-                            .foregroundColor(.white)
-                            .frame(width: 80, height: 50)
-                            .background(Color.white.opacity(0.2))
-                            .clipShape(Capsule())
-                    }
-                    .opacity(createBaseAudioURL != nil && createAdditionalZStacks.contains(where: { $0.audioURL != nil }) ? 1.0 : 0.5)
-                    
-                    ZStack {
-                        // Gradient image positioned directly behind the button
-                        Image("Gradient")
-                            .resizable()
-                            .scaledToFit()
-                            .opacity(1)
-                            .frame(width: 115, height: 115)
-                            .rotationEffect(.degrees(gradientRotation))
-                            .onAppear {
-                                withAnimation(Animation.linear(duration: 10).repeatForever(autoreverses: false)) {
-                                    gradientRotation = 360
-                                }
-                            }
+                                .frame(width: 50, height: 50)
+                                .glassEffect(.regular.tint(.clear).interactive())                        }
                         
                         Button(action: {
-                            withAnimation(.easeInOut(duration: 0.5)) {
-                                showAIUploadPage = true
-                                currentPage = .aiUpload
-                                previousPage = .create
+                            if createBaseAudioURL != nil && createAdditionalZStacks.contains(where: { $0.audioURL != nil }) {
+                                showConfigurePage = true
+                            } else {
+                                UINotificationFeedbackGenerator().notificationOccurred(.error)
                             }
                         }) {
-                            ZStack {
-                                // White circle background
-                                Circle()
-                                    .fill(Color.white.opacity(0.6))
-                                    .frame(width: 50, height: 50)
-                                
-                                // Gradient visible through the sparkles
-                                Image("Gradient")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 115, height: 115)
-                                    .rotationEffect(.degrees(gradientRotation))
-                                    .mask(
-                                        Image(systemName: "sparkles")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(.black)
-                                    )
+                            Text("Next")
+                                .font(.system(size: 24))
+                                .foregroundColor(.white)
+                                .frame(width: 80, height: 50)
+                                .glassEffect(.regular.tint(.clear).interactive())
+                        }
+                        .opacity(createBaseAudioURL != nil && createAdditionalZStacks.contains(where: { $0.audioURL != nil }) ? 1.0 : 0.5)
+                        
+                        ZStack {
+                            // Gradient image positioned directly behind the button
+                            Image("Gradient")
+                                .resizable()
+                                .scaledToFit()
+                                .opacity(1)
+                                .frame(width: 115, height: 115)
+                                .rotationEffect(.degrees(gradientRotation))
+                                .onAppear {
+                                    withAnimation(Animation.linear(duration: 10).repeatForever(autoreverses: false)) {
+                                        gradientRotation = 360
+                                    }
+                                }
+                            
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.5)) {
+                                    showAIUploadPage = true
+                                    currentPage = .aiUpload
+                                    previousPage = .create
+                                }
+                            }) {
+                                ZStack {
+                                    // White circle background
+                                    Circle()
+                                        .fill(Color.white.opacity(0.6))
+                                        .frame(width: 50, height: 50)
+                                        .glassEffect(.regular.tint(.clear).interactive())
+                                    
+                                    // Gradient visible through the sparkles
+                                    Image("Gradient")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 115, height: 115)
+                                        .rotationEffect(.degrees(gradientRotation))
+                                        .mask(
+                                            Image(systemName: "sparkles")
+                                                .font(.system(size: 20))
+                                                .foregroundColor(.black)
+                                        )
+                                }
+                            }
+                            .popoverTip(createTip, arrowEdge: .bottom)
+                        }
+                        .frame(width: 50, height: 50)
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+                    .background(Color.clear)
+                }
+                .ignoresSafeArea(.keyboard)
+                .zIndex(2)
+            }
+            .sheet(isPresented: $showInfoPage) {
+                infoPage()
+            }
+            .task {
+                try? await Task.sleep(for: .seconds(1))
+                try? Tips.configure()
+            }
+        }
+        
+        private var baseAudioStack: some View {
+            GeometryReader { geometry in
+                baseAudioCard(geometry: geometry)
+                    .offset(x: createBaseOffset)
+                    .gesture(baseAudioGesture)
+            }
+            .frame(height: 108)
+            .alert(isPresented: $showLengthMismatchAlert) {
+                Alert(
+                    title: Text("Length Mismatch"),
+                    message: Text("All tracks should be the same length"),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
+        }
+        
+        private func baseAudioCard(geometry: GeometryProxy) -> some View {
+            ZStack {
+                Color(red: 0/255, green: 0/255, blue: 0/255)
+                    .opacity(0.3)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(0.3), lineWidth: 3)
+                    )
+                    .frame(width: geometry.size.width, height: 108)
+                    .cornerRadius(16)
+                    .clipped()
+                Text(createBaseTitle)
+                    .font(.system(size: 35, weight: .semibold))
+                    .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading) // 65% of screen width
+                    .minimumScaleFactor(0.3) // Allows shrinking to 50% of size if needed
+                    .multilineTextAlignment(.leading) // Left-align new lines
+                    .lineLimit(2)
+                    .offset(x:-40)
+                    .foregroundColor(.white)
+                    .padding(.leading, 16)
+                Button(action: {
+                    if createBaseAudioURL == nil {
+                        createBaseShowingFilePicker = true
+                    } else {
+                        toggleBasePlayback()
+                    }
+                }) {
+                    Image(systemName: createBaseAudioURL == nil ? "plus" : (createBaseIsPlaying ? "pause" : "play"))
+                        .font(.system(size: 20))
+                        .foregroundColor(.white)
+                        .frame(width: 50, height: 50)
+                        .background(Color.white.opacity(0.2))
+                        .clipShape(Circle())
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.trailing, 20)
+                .sheet(isPresented: $createBaseShowingFilePicker, content: baseAudioPicker)
+            }
+        }
+        
+        private var baseAudioGesture: some Gesture {
+            DragGesture()
+                .onChanged { value in
+                    createBaseOffset = value.translation.width
+                }
+                .onEnded { value in
+                    if value.translation.width < -50 {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            createBaseOffset = -UIScreen.main.bounds.width
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            if let url = createBaseAudioURL {
+                                removeAudioFile(at: url)
+                            }
+                            if createBaseIsPlaying, let player = createBasePlayer {
+                                player.pause()
+                                createBaseIsPlaying = false
+                            }
+                            createBaseAudioURL = nil
+                            createBasePlayer = nil
+                            createBaseOffset = 0
+                            createBaseVolume = 0.0
+                            createBaseTitle = "Base"
+                            if createAdditionalZStacks.isEmpty {
+                                createReferenceLength = nil
                             }
                         }
-                        .popoverTip(createTip, arrowEdge: .bottom)
-                    }
-                    .frame(width: 50, height: 50)
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-                .background(Color.clear)
-            }
-            .ignoresSafeArea(.keyboard)
-            .zIndex(2)
-        }
-        .sheet(isPresented: $showInfoPage) {
-            infoPage()
-        }
-        .task {
-            try? await Task.sleep(for: .seconds(1))
-            try? Tips.configure()
-        }
-    }
-    
-    private var baseAudioStack: some View {
-        GeometryReader { geometry in
-            baseAudioCard(geometry: geometry)
-                .offset(x: createBaseOffset)
-                .gesture(baseAudioGesture)
-        }
-        .frame(height: 108)
-        .alert(isPresented: $showLengthMismatchAlert) {
-            Alert(
-                title: Text("Length Mismatch"),
-                message: Text("All tracks should be the same length"),
-                dismissButton: .default(Text("OK"))
-            )
-        }
-    }
-    
-    private func baseAudioCard(geometry: GeometryProxy) -> some View {
-        ZStack {
-            Color(red: 0/255, green: 0/255, blue: 0/255)
-                .opacity(0.3)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.3), lineWidth: 3)
-                )
-                .frame(width: geometry.size.width, height: 108)
-                .cornerRadius(16)
-                .clipped()
-            Text(createBaseTitle)
-                .font(.system(size: 35, weight: .semibold))
-                .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading) // 65% of screen width
-                .minimumScaleFactor(0.3) // Allows shrinking to 50% of size if needed
-                .multilineTextAlignment(.leading) // Left-align new lines
-                .lineLimit(2)
-                .offset(x:-40)
-                .foregroundColor(.white)
-                .padding(.leading, 16)
-            Button(action: {
-                if createBaseAudioURL == nil {
-                    createBaseShowingFilePicker = true
-                } else {
-                    toggleBasePlayback()
-                }
-            }) {
-                Image(systemName: createBaseAudioURL == nil ? "plus" : (createBaseIsPlaying ? "pause" : "play"))
-                    .font(.system(size: 20))
-                    .foregroundColor(.white)
-                    .frame(width: 50, height: 50)
-                    .background(Color.white.opacity(0.2))
-                    .clipShape(Circle())
-            }
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .padding(.trailing, 20)
-            .sheet(isPresented: $createBaseShowingFilePicker, content: baseAudioPicker)
-        }
-    }
-    
-    private var baseAudioGesture: some Gesture {
-        DragGesture()
-            .onChanged { value in
-                createBaseOffset = value.translation.width
-            }
-            .onEnded { value in
-                if value.translation.width < -50 {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        createBaseOffset = -UIScreen.main.bounds.width
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        if let url = createBaseAudioURL {
-                            removeAudioFile(at: url)
-                        }
-                        if createBaseIsPlaying, let player = createBasePlayer {
-                            player.pause()
-                            createBaseIsPlaying = false
-                        }
-                        createBaseAudioURL = nil
-                        createBasePlayer = nil
-                        createBaseOffset = 0
-                        createBaseVolume = 0.0
-                        createBaseTitle = "Base"
-                        if createAdditionalZStacks.isEmpty {
-                            createReferenceLength = nil
-                        }
-                    }
-                } else {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        createBaseOffset = 0
-                    }
-                }
-            }
-    }
-    
-    private func baseAudioPicker() -> some View {
-        DocumentPicker { url in
-            if let storedURL = storeAudioFile(url, name: "Soundtrack\(soundtracks.count + 1)Base_\(UUID().uuidString)") {
-                if let tempPlayer = try? AVAudioPlayer(contentsOf: storedURL) {
-                    let duration = tempPlayer.duration
-                    if createReferenceLength == nil || createAdditionalZStacks.isEmpty {
-                        createReferenceLength = duration
-                        createBaseAudioURL = storedURL
-                        createBasePlayer = tempPlayer
-                        createBasePlayer?.volume = mapVolume(createBaseVolume)
-                        createBasePlayer?.prepareToPlay()
-                    } else if abs(duration - createReferenceLength!) < 0.1 {
-                        createBaseAudioURL = storedURL
-                        createBasePlayer = tempPlayer
-                        createBasePlayer?.volume = mapVolume(createBaseVolume)
-                        createBasePlayer?.prepareToPlay()
                     } else {
-                        removeAudioFile(at: storedURL)
-                        showLengthMismatchAlert = true
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            createBaseOffset = 0
+                        }
                     }
                 }
-            }
         }
-    }
-    
-    private var dynamicAudioStacks: some View {
-        ForEach(Array(createAdditionalZStacks.enumerated()), id: \.element.id) { index, stack in
-            if stack.audioURL != nil {
-                GeometryReader { geometry in
-                    additionalAudioZStack(geometry: geometry, index: index)
-                }
-                .frame(height: 160)
-            }
-        }
-    }
-    
-    private func additionalAudioZStack(geometry: GeometryProxy, index: Int) -> some View {
-        ZStack {
-            Color(red: 0/255, green: 0/255, blue: 0/255)
-                .opacity(0.3)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.3), lineWidth: 3)
-                )
-                .frame(width: geometry.size.width, height: 160)
-                .cornerRadius(16)
-                .clipped()
-            Text(index < createAdditionalTitles.count ? createAdditionalTitles[index] : "Audio \(index + 1)")
-                .font(.system(size: 35, weight: .semibold))
-                .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading) // 65% of screen width
-                .minimumScaleFactor(0.3) // Allows shrinking to 50% of size if needed
-                .multilineTextAlignment(.leading) // Left-align new lines
-                .lineLimit(2)
-                .offset(x:-40)
-                .foregroundColor(.white)
-                .padding(.leading, 16)
-            Button(action: {
-                if createAdditionalZStacks[index].audioURL == nil {
-                    createAdditionalZStacks[index].showingFilePicker = true
-                } else {
-                    togglePlayback(at: index)
-                }
-            }) {
-                Image(systemName: createAdditionalZStacks[index].audioURL == nil ? "plus" : (createAdditionalZStacks[index].isPlaying ? "pause" : "play"))
-                    .font(.system(size: 20))
-                    .foregroundColor(.white)
-                    .frame(width: 50, height: 50)
-                    .background(Color.white.opacity(0.2))
-                    .clipShape(Circle())
-            }
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .padding(.trailing, 20)
-            .sheet(isPresented: Binding(
-                get: { createAdditionalZStacks[index].showingFilePicker },
-                set: { newValue in createAdditionalZStacks[index].showingFilePicker = newValue }
-            )) {
-                dynamicAudioPicker(index: index)
-            }
-        }
-    }
-    
-    private func dynamicAudioGesture(index: Int) -> some Gesture {
-        DragGesture()
-            .onChanged { value in
-                createAdditionalZStacks[index].offset = value.translation.width
-            }
-            .onEnded { value in
-                if value.translation.width < -50 {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        createAdditionalZStacks[index].offset = -UIScreen.main.bounds.width
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        if let url = createAdditionalZStacks[index].audioURL {
-                            removeAudioFile(at: url)
-                        }
-                        if createAdditionalZStacks[index].isPlaying, let player = createAdditionalZStacks[index].player {
-                            player.pause()
-                            createAdditionalZStacks[index].isPlaying = false
-                        }
-                        createAdditionalZStacks.remove(at: index)
-                        if index < createAdditionalTitles.count {
-                            createAdditionalTitles.remove(at: index)
-                            createAdditionalAlwaysPlaying.remove(at: index)
-                        }
-                        if createAdditionalZStacks.isEmpty && createBaseAudioURL == nil {
-                            createReferenceLength = nil
-                        }
-                    }
-                } else {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        createAdditionalZStacks[index].offset = 0
-                    }
-                }
-            }
-    }
-    
-    private func dynamicAudioPicker(index: Int) -> some View {
-        DocumentPicker { url in
-            if let storedURL = storeAudioFile(url, name: "Soundtrack\(soundtracks.count + 1)Audio\(index + 1)_\(UUID().uuidString)") {
-                if let tempPlayer = try? AVAudioPlayer(contentsOf: storedURL) {
-                    let duration = tempPlayer.duration
-                    if createReferenceLength == nil || abs(duration - createReferenceLength!) < 0.1 {
-                        createAdditionalZStacks[index].audioURL = storedURL
-                        createAdditionalZStacks[index].player = tempPlayer
-                        createAdditionalZStacks[index].player?.volume = mapVolume(createAdditionalZStacks[index].volume)
-                        createAdditionalZStacks[index].player?.prepareToPlay()
-                        if createReferenceLength == nil {
+        
+        private func baseAudioPicker() -> some View {
+            DocumentPicker { url in
+                if let storedURL = storeAudioFile(url, name: "Soundtrack\(soundtracks.count + 1)Base_\(UUID().uuidString)") {
+                    if let tempPlayer = try? AVAudioPlayer(contentsOf: storedURL) {
+                        let duration = tempPlayer.duration
+                        if createReferenceLength == nil || createAdditionalZStacks.isEmpty {
                             createReferenceLength = duration
+                            createBaseAudioURL = storedURL
+                            createBasePlayer = tempPlayer
+                            createBasePlayer?.volume = mapVolume(createBaseVolume)
+                            createBasePlayer?.prepareToPlay()
+                        } else if abs(duration - createReferenceLength!) < 0.1 {
+                            createBaseAudioURL = storedURL
+                            createBasePlayer = tempPlayer
+                            createBasePlayer?.volume = mapVolume(createBaseVolume)
+                            createBasePlayer?.prepareToPlay()
+                        } else {
+                            removeAudioFile(at: storedURL)
+                            showLengthMismatchAlert = true
+                        }
+                    }
+                }
+            }
+        }
+        
+        private var dynamicAudioStacks: some View {
+            ForEach(createAdditionalZStacks.indices, id: \.self) { index in
+                GeometryReader { geometry in
+                    dynamicAudioCard(geometry: geometry, index: index)
+                        .offset(x: createAdditionalZStacks[index].offset)
+                        .gesture(dynamicAudioGesture(index: index))
+                }
+                .frame(height: 108)
+            }
+        }
+        
+        private func dynamicAudioCard(geometry: GeometryProxy, index: Int) -> some View {
+            ZStack {
+                Color(red: 0/255, green: 0/255, blue: 0/255)
+                    .opacity(0.3)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(0.3), lineWidth: 3)
+                    )
+                    .frame(width: geometry.size.width, height: 108)
+                    .cornerRadius(16)
+                    .clipped()
+                Text(index < createAdditionalTitles.count ? createAdditionalTitles[index] : "Audio \(index + 1)")
+                    .font(.system(size: 35, weight: .semibold))
+                    .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading) // 65% of screen width
+                    .minimumScaleFactor(0.3) // Allows shrinking to 50% of size if needed
+                    .multilineTextAlignment(.leading) // Left-align new lines
+                    .lineLimit(2)
+                    .offset(x:-40)
+                    .foregroundColor(.white)
+                    .padding(.leading, 16)
+                Button(action: {
+                    if createAdditionalZStacks[index].audioURL == nil {
+                        createAdditionalZStacks[index].showingFilePicker = true
+                    } else {
+                        togglePlayback(at: index)
+                    }
+                }) {
+                    Image(systemName: createAdditionalZStacks[index].audioURL == nil ? "plus" : (createAdditionalZStacks[index].isPlaying ? "pause" : "play"))
+                        .font(.system(size: 20))
+                        .foregroundColor(.white)
+                        .frame(width: 50, height: 50)
+                        .background(Color.white.opacity(0.2))
+                        .clipShape(Circle())
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.trailing, 20)
+                .sheet(isPresented: Binding(
+                    get: { createAdditionalZStacks[index].showingFilePicker },
+                    set: { newValue in createAdditionalZStacks[index].showingFilePicker = newValue }
+                )) {
+                    dynamicAudioPicker(index: index)
+                }
+            }
+        }
+        
+        private func dynamicAudioGesture(index: Int) -> some Gesture {
+            DragGesture()
+                .onChanged { value in
+                    createAdditionalZStacks[index].offset = value.translation.width
+                }
+                .onEnded { value in
+                    if value.translation.width < -50 {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            createAdditionalZStacks[index].offset = -UIScreen.main.bounds.width
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            if let url = createAdditionalZStacks[index].audioURL {
+                                removeAudioFile(at: url)
+                            }
+                            if createAdditionalZStacks[index].isPlaying, let player = createAdditionalZStacks[index].player {
+                                player.pause()
+                                createAdditionalZStacks[index].isPlaying = false
+                            }
+                            createAdditionalZStacks.remove(at: index)
+                            if index < createAdditionalTitles.count {
+                                createAdditionalTitles.remove(at: index)
+                                createAdditionalAlwaysPlaying.remove(at: index)
+                            }
+                            if createAdditionalZStacks.isEmpty && createBaseAudioURL == nil {
+                                createReferenceLength = nil
+                            }
                         }
                     } else {
-                        removeAudioFile(at: storedURL)
-                        showLengthMismatchAlert = true
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            createAdditionalZStacks[index].offset = 0
+                        }
+                    }
+                }
+        }
+        
+        private func dynamicAudioPicker(index: Int) -> some View {
+            DocumentPicker { url in
+                if let storedURL = storeAudioFile(url, name: "Soundtrack\(soundtracks.count + 1)Audio\(index + 1)_\(UUID().uuidString)") {
+                    if let tempPlayer = try? AVAudioPlayer(contentsOf: storedURL) {
+                        let duration = tempPlayer.duration
+                        if createReferenceLength == nil || abs(duration - createReferenceLength!) < 0.1 {
+                            createAdditionalZStacks[index].audioURL = storedURL
+                            createAdditionalZStacks[index].player = tempPlayer
+                            createAdditionalZStacks[index].player?.volume = mapVolume(createAdditionalZStacks[index].volume)
+                            createAdditionalZStacks[index].player?.prepareToPlay()
+                            if createReferenceLength == nil {
+                                createReferenceLength = duration
+                            }
+                        } else {
+                            removeAudioFile(at: storedURL)
+                            showLengthMismatchAlert = true
+                        }
                     }
                 }
             }
         }
-    }
-    
-    private var addAudioButton: some View {
-        HStack(spacing: 20) {
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    createAdditionalZStacks.append(ZStackData(id: createNextID))
-                    createAdditionalTitles.append("Audio \(createNextID)")
-                    createAdditionalAlwaysPlaying.append(false)
-                    createNextID += 1
-                }
-            }) {
-                Image(systemName: "plus")
-                    .font(.system(size: 20))
-                    .foregroundColor(.white)
-                    .frame(width: 50, height: 50)
-                    .background(Color.white.opacity(0.2))
-                    .clipShape(Circle())
-            }
-            
-            Button(action: {
-                showImportPicker = true
-            }) {
-                Image(systemName: "square.and.arrow.down")
-                    .font(.system(size: 20))
-                    .foregroundColor(.white)
-                    .frame(width: 50, height: 50)
-                    .background(Color.white.opacity(0.2))
-                    .clipShape(Circle())
-            }
-            .sheet(isPresented: $showImportPicker) {
-                FolderPicker { url in
-                    importedSoundtrackURL = url
-                    withAnimation(.easeInOut(duration: 0.5)) {
-                        previousPage = .create
-                        currentPage = .import
+        
+        private var addAudioButton: some View {
+            HStack(spacing: 20) {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        createAdditionalZStacks.append(ZStackData(id: createNextID))
+                        createAdditionalTitles.append("Audio \(createNextID)")
+                        createAdditionalAlwaysPlaying.append(false)
+                        createNextID += 1
                     }
+                }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 20))
+                        .foregroundColor(.white)
+                        .frame(width: 50, height: 50)
+                        .glassEffect(.regular.tint(.clear).interactive())
                 }
+                
             }
+            .padding(.top, 10)
         }
-        .padding(.top, 10)
-    }
     
     // MARK: - Volume Page
     private var volumeScreen: some View {

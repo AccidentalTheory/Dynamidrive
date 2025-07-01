@@ -1,6 +1,9 @@
+//  ↓↓
+// READ <<<<<----- All elements of this page are found in ContentView.swift from line 875!! 😡😡😡😡😭😭😭😭🙏🙏🙏🙏🙏
+// ^^^^
+
 import SwiftUI
 import AVFoundation
-import UniformTypeIdentifiers
 
 struct CreatePage: View {
     @Binding var showCreatePage: Bool
@@ -8,7 +11,7 @@ struct CreatePage: View {
     @Binding var showVolumePage: Bool
     @Binding var createBaseAudioURL: URL?
     @Binding var createBasePlayer: AVAudioPlayer?
-    @Binding var createBaseIsPlaying: Bool
+    @Binding var createBaseIsPlaying: Bool 
     @Binding var createBaseOffset: CGFloat
     @Binding var createBaseShowingFilePicker: Bool
     @Binding var createBaseVolume: Double
@@ -22,8 +25,6 @@ struct CreatePage: View {
     @Binding var createAudio1MinimumSpeed: Int
     @Binding var createAudio1MaximumSpeed: Int
     @Binding var showAIUploadPage: Bool
-    
-    @State private var showingFilePickerForIndex: Int? = nil
     
     var body: some View {
         NavigationStack {
@@ -89,27 +90,6 @@ struct CreatePage: View {
                 }
                 .ignoresSafeArea(.keyboard)
                 .zIndex(2)
-            }
-            .fileImporter(
-                isPresented: $createBaseShowingFilePicker,
-                allowedContentTypes: [.audio],
-                allowsMultipleSelection: false
-            ) { result in
-                switch result {
-                case .success(let urls):
-                    if let url = urls.first {
-                        createBaseAudioURL = url
-                        do {
-                            createBasePlayer = try AVAudioPlayer(contentsOf: url)
-                            createBasePlayer?.prepareToPlay()
-                            createReferenceLength = createBasePlayer?.duration
-                        } catch {
-                            print("Error loading audio: \(error)")
-                        }
-                    }
-                case .failure(let error):
-                    print("Error selecting file: \(error)")
-                }
             }
         }
     }
@@ -178,7 +158,7 @@ struct CreatePage: View {
                         .padding(.leading, 16)
                     Button(action: {
                         if createAdditionalZStacks[index].audioURL == nil {
-                            showingFilePickerForIndex = index
+                            createAdditionalZStacks[index].showingFilePicker = true
                         } else {
                             togglePlayback(at: index)
                         }
@@ -195,33 +175,6 @@ struct CreatePage: View {
                 }
             }
             .frame(height: 108)
-            .fileImporter(
-                isPresented: Binding(
-                    get: { showingFilePickerForIndex == index },
-                    set: { if !$0 { showingFilePickerForIndex = nil } }
-                ),
-                allowedContentTypes: [.audio],
-                allowsMultipleSelection: false
-            ) { result in
-                switch result {
-                case .success(let urls):
-                    if let url = urls.first {
-                        createAdditionalZStacks[index].audioURL = url
-                        do {
-                            createAdditionalZStacks[index].player = try AVAudioPlayer(contentsOf: url)
-                            createAdditionalZStacks[index].player?.prepareToPlay()
-                            if createReferenceLength == nil {
-                                createReferenceLength = createAdditionalZStacks[index].player?.duration
-                            }
-                        } catch {
-                            print("Error loading audio: \(error)")
-                        }
-                    }
-                case .failure(let error):
-                    print("Error selecting file: \(error)")
-                }
-                showingFilePickerForIndex = nil
-            }
         }
     }
     
@@ -229,12 +182,9 @@ struct CreatePage: View {
         HStack(spacing: 20) {
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    var newStack = ZStackData(id: createNextID)
-                    newStack.volume = 0.0
-                    createAdditionalZStacks.append(newStack)
+                    createAdditionalZStacks.append(ZStackData(id: createNextID))
                     createAdditionalTitles.append("Audio \(createNextID)")
                     createAdditionalAlwaysPlaying.append(false)
-                    showingFilePickerForIndex = createAdditionalZStacks.count - 1
                     createNextID += 1
                 }
             }) {

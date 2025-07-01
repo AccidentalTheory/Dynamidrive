@@ -99,11 +99,11 @@ struct MainScreen: View {
             }
             
             // Bottom Buttons Container
-            if !soundtracks.isEmpty {
-                VStack {
+            VStack {
+                Spacer()
+                HStack {
                     Spacer()
-                    HStack {
-                        Spacer()
+                    Menu {
                         Button(action: {
                             withAnimation(.easeInOut(duration: 0.5)) {
                                 resetCreatePage()
@@ -113,17 +113,29 @@ struct MainScreen: View {
                                 currentPage = .create
                             }
                         }) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white)
-                                .frame(width: 50, height: 50)
-                                .background(Color.white.opacity(0.2))
-                                .clipShape(Circle())
-                                .glassEffect(.regular.tint(.clear).interactive())
+                            Label("Create New...", systemImage: "plus")
                         }
+                        
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.5)) {
+                                showImportPage = true
+                                showCreatePage = false
+                                currentPage = .create
+                            }
+                        }) {
+                            Label("Import Existing...", systemImage: "square.and.arrow.down")
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .frame(width: 50, height: 50)
+                            .background(Color.white.opacity(0.2))
+                            .clipShape(Circle())
+                            .glassEffect(.regular.tint(.clear).interactive())
                     }
-                    .padding()
                 }
+                .padding()
             }
         }
     }
