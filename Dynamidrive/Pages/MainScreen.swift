@@ -15,6 +15,7 @@ struct MainScreen: View {
     @Binding var isMainScreenEditMode: Bool
     @Binding var soundtracksBeingDeleted: Set<UUID>
     @EnvironmentObject private var audioController: AudioController
+    @EnvironmentObject private var locationHandler: LocationHandler
     @Binding var previousPage: AppPage?
 
     
@@ -158,76 +159,90 @@ struct MainScreen: View {
                 .background(.ultraThinMaterial)
                 .overlay(Color.black.opacity(0.15))
                 .cornerRadius(16)
-            Button(action: {
-                pendingSoundtrack = soundtrack
-                previousPage = currentPage
-                withAnimation(.easeInOut(duration: 0.5)) {
-                    showPlaybackPage = true
-                }
-            }) {
-                Text(soundtrack.title)
-                    .foregroundColor(.white)
-                    .font(.system(size: 35, weight: .semibold))
-                    .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading) // 65% of screen width
-                    .minimumScaleFactor(0.3) // Allows shrinking to 50% of size if needed
-                    .multilineTextAlignment(.leading) // Left-align new lines
-                    .lineLimit(2)
-                    .offset(x:-40)
-                    .padding(.leading, 16)
-            }
-            if isMainScreenEditMode {
-                Button(action: {
-                    // Mark the soundtrack as being deleted
-                    soundtracksBeingDeleted.insert(soundtrack.id)
-                    // Animate the fade-out and then delete
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        // The opacity will change due to the binding in the modifier below
+            
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Button(action: {
+                        pendingSoundtrack = soundtrack
+                        previousPage = currentPage
+                        withAnimation(.easeInOut(duration: 0.5)) {
+                            showPlaybackPage = true
+                        }
+                    }) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(soundtrack.title)
+                                .foregroundColor(.white)
+                                .font(.system(size: 28, weight: .semibold))
+                                .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
+                                .minimumScaleFactor(0.3)
+                                .multilineTextAlignment(.leading)
+                                .lineLimit(1)
+                            
+                            Text("Distance Played: \(String(format: "%.1f", audioController.isSoundtrackPlaying && pendingSoundtrack?.id == soundtrack.id ? locationHandler.currentSoundtrackDistance : 0.0)) mi")
+                                .foregroundColor(.gray)
+                                .font(.system(size: 16, weight: .medium))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
-                    // Delay the actual deletion until the animation completes
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        deleteSoundtrack(soundtrack)
-                        soundtracksBeingDeleted.remove(soundtrack.id)
-                    }
-                }) {
-                    Image(systemName: "minus")
-                        .font(.system(size: 20))
-                        .foregroundColor(.white)
-                        .frame(width: 50, height: 50)
-                        .glassEffect(.regular.tint(.red).interactive())
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.trailing, 20)
-            } else {
-                Button(action: {
-                    if audioController.currentSoundtrackTitle != soundtrack.title {
-                        if audioController.isSoundtrackPlaying {
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                
+                if !isMainScreenEditMode {
+                    Button(action: {
+                        if audioController.currentSoundtrackTitle != soundtrack.title {
+                            if audioController.isSoundtrackPlaying {
+                                audioController.toggleSoundtrackPlayback()
+                            }
+                            audioController.setCurrentSoundtrack(tracks: soundtrack.tracks, players: soundtrack.players, title: soundtrack.title)
+                            audioController.toggleSoundtrackPlayback()
+                        } else {
                             audioController.toggleSoundtrackPlayback()
                         }
-                        audioController.setCurrentSoundtrack(tracks: soundtrack.tracks, players: soundtrack.players, title: soundtrack.title)
-                        audioController.toggleSoundtrackPlayback()
-                    } else {
-                        audioController.toggleSoundtrackPlayback()
+                    }) {
+                        Image(systemName: audioController.isSoundtrackPlaying && audioController.currentSoundtrackTitle == soundtrack.title ? "pause.fill" : "play.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .frame(width: 50, height: 50)
+                            .glassEffect(.regular.tint(.clear).interactive())
                     }
-                }) {
-                    Image(systemName: audioController.isSoundtrackPlaying && audioController.currentSoundtrackTitle == soundtrack.title ? "pause.fill" : "play.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.white)
-                        .frame(width: 50, height: 50)
-                        .glassEffect(.regular.tint(.clear).interactive())
+                } else {
+                    Button(action: {
+                        // Mark the soundtrack as being deleted
+                        soundtracksBeingDeleted.insert(soundtrack.id)
+                        // Animate the fade-out and then delete
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            // The opacity will change due to the binding in the modifier below
+                        }
+                        // Delay the actual deletion until the animation completes
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            deleteSoundtrack(soundtrack)
+                            soundtracksBeingDeleted.remove(soundtrack.id)
+                        }
+                    }) {
+                        Image(systemName: "minus")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .frame(width: 50, height: 50)
+                            .glassEffect(.regular.tint(.red).interactive())
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.trailing, 20)
             }
+            .padding(.horizontal, 16)
         }
-        .modifier(FlyInCardEffect(isVisible: animateCards, delay: delay))
+        .frame(height: 108)
         .opacity(soundtracksBeingDeleted.contains(soundtrack.id) ? 0 : 1)
+        .scaleEffect(soundtracksBeingDeleted.contains(soundtrack.id) ? 0.8 : 1)
         .animation(.easeInOut(duration: 0.3), value: soundtracksBeingDeleted)
+        .modifier(FlyInCardEffect(isVisible: animateCards, delay: delay))
     }
-} 
+}
 
 private struct FlyInCardEffect: ViewModifier {
     let isVisible: Bool
     let delay: Double
+    
     func body(content: Content) -> some View {
         content
             .opacity(isVisible ? 1 : 0)
@@ -270,3 +285,4 @@ private struct InViewScrollEffect<Content: View>: View {
         }
     }
 }
+

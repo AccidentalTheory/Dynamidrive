@@ -295,10 +295,10 @@ struct PlaybackPage: View {
                                                 .foregroundColor(.white.opacity(0.5))
                                                 .scaleEffect(maxSpeedScale[index] ?? 1.0)
                                         }
-                                        .padding(.horizontal, 16)
-                                        .offset(y: 20)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .center)
+                                                                        .padding(.horizontal, 16)
+                                .offset(y: 20)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
                                     
                                     AudioBarsView(isPlaying: audioController.isSoundtrackPlaying, currentSoundtrackTitle: displayedTitle)
                                         .frame(width: 70, height: 50)

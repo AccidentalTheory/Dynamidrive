@@ -119,10 +119,13 @@ class AudioController: ObservableObject {
                 masterPlaybackTime = firstPlayer?.currentTime ?? 0.0
             }
             currentPlayers.forEach { $0?.pause() }
+            locationHandler.stopDistanceTracking()
             updateSyncTimer()
         } else {
             let deviceCurrentTime = currentPlayers.first(where: { $0 != nil })??.deviceCurrentTime ?? 0
             let startTime = deviceCurrentTime + 0.1
+            
+            locationHandler.startDistanceTracking()
             
             for (index, player) in currentPlayers.enumerated() {
                 if let player = player {
@@ -875,6 +878,7 @@ struct ContentView: View {
             resetCreatePage: resetCreatePage,
             deleteSoundtrack: deleteSoundtrack
         )
+        .environmentObject(locationHandler)
     }
     
     // MARK: - Loading Screen
@@ -2794,11 +2798,17 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var speedMPH: Double = 0.0
     @Published var status: String = "Starting..."
     @Published var location: CLLocation?
+    @Published var currentSoundtrackDistance: Double = 0.0  // Distance in miles
+    private var lastLocation: CLLocation?
+    private var isTrackingDistance: Bool = false
     private let locationManager = CLLocationManager()
     
     override init() {
         super.init()
         locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        locationManager.allowsBackgroundLocationUpdates = true
+        locationManager.pausesLocationUpdatesAutomatically = false
     }
     
     func startLocationUpdates() {
@@ -2833,6 +2843,17 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
         self.location = location
         let speed = max(location.speed, 0)
         speedMPH = min(speed * 2.23694, 80)
+        
+        // Calculate distance if tracking is enabled
+        if isTrackingDistance {
+            if let lastLoc = lastLocation {
+                let distanceInMeters = location.distance(from: lastLoc)
+                let distanceInMiles = distanceInMeters / 1609.34  // Convert meters to miles
+                currentSoundtrackDistance += distanceInMiles
+            }
+            lastLocation = location
+        }
+        
         status = "Lat: \(location.coordinate.latitude), Lon: \(location.coordinate.longitude), Speed: \(String(format: "%.1f", speedMPH)) mph"
         print("Location update: Speed = \(String(format: "%.1f", speedMPH)) mph, Status = \(status)")
         
@@ -2873,6 +2894,17 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
             self.status = "Unknown authorization status"
             print("Unknown authorization status")
         }
+    }
+    
+    func stopDistanceTracking() {
+        isTrackingDistance = false
+        lastLocation = nil
+        currentSoundtrackDistance = 0.0
+    }
+    
+    func startDistanceTracking() {
+        isTrackingDistance = true
+        lastLocation = location
     }
 }
 
