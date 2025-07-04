@@ -4,7 +4,6 @@ import AVFoundation
 import UniformTypeIdentifiers
 import UIKit
 import MediaPlayer
-
 import MapKit
 import TipKit
 
@@ -450,6 +449,8 @@ struct ContentView: View {
     @State private var gradientRotation: Double = 0 // New state for gradient rotation
     @State private var createTip = CreatePageTip()
     @State private var editTip = EditPageTip()
+    @State private var animateCards: Bool = false // Start invisible
+    @State private var hasAnimatedOnce: Bool = false
     
     // MARK: Gauge Settings
     @AppStorage("portraitGaugeStyle") private var portraitGaugeStyle: String = "fullCircle" // "fullCircle" or "separatedArc"
@@ -644,6 +645,13 @@ struct ContentView: View {
                     createPageRemovalDirection = .leading // Reset
                     volumePageRemovalDirection = .leading // Reset
                     configurePageInsertionDirection = .trailing // Reset
+                    
+                    // Start card animations after a short delay
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation {
+                            animateCards = true
+                        }
+                    }
                 }
             }
         }
@@ -859,9 +867,11 @@ struct ContentView: View {
             showPlaybackPage: $showPlaybackPage,
             pendingSoundtrack: $pendingSoundtrack,
             soundtracks: $soundtracks,
+            animateCards: $animateCards,
+            hasAnimatedOnce: $hasAnimatedOnce,
             isMainScreenEditMode: $isMainScreenEditMode,
             soundtracksBeingDeleted: $soundtracksBeingDeleted,
-            previousPage: $previousPage, // Add this binding
+            previousPage: $previousPage,
             resetCreatePage: resetCreatePage,
             deleteSoundtrack: deleteSoundtrack
         )
@@ -966,37 +976,25 @@ struct ContentView: View {
                                 .frame(width: 115, height: 115)
                                 .rotationEffect(.degrees(gradientRotation))
                                 .onAppear {
+                                    gradientRotation = 0 // Reset rotation
                                     withAnimation(Animation.linear(duration: 10).repeatForever(autoreverses: false)) {
                                         gradientRotation = 360
                                     }
                                 }
+                                .onDisappear {
+                                    gradientRotation = 0 // Reset rotation when view disappears
+                                }
                             
                             Button(action: {
-                                withAnimation(.easeInOut(duration: 0.5)) {
-                                    showAIUploadPage = true
-                                    currentPage = .aiUpload
-                                    previousPage = .create
-                                }
+                                showAIUploadPage = true
+                                currentPage = .aiUpload
+                                previousPage = .create
                             }) {
-                                ZStack {
-                                    // White circle background
-                                    Circle()
-                                        .fill(Color.white.opacity(0.6))
-                                        .frame(width: 50, height: 50)
-                                        .glassEffect(.regular.tint(.clear).interactive())
-                                    
-                                    // Gradient visible through the sparkles
-                                    Image("Gradient")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 115, height: 115)
-                                        .rotationEffect(.degrees(gradientRotation))
-                                        .mask(
-                                            Image(systemName: "sparkles")
-                                                .font(.system(size: 20))
-                                                .foregroundColor(.black)
-                                        )
-                                }
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.white)
+                                    .frame(width: 50, height: 50)
+                                    .glassEffect(.regular.tint(.clear).interactive())
                             }
                             .popoverTip(createTip, arrowEdge: .bottom)
                         }
@@ -1036,15 +1034,12 @@ struct ContentView: View {
         
         private func baseAudioCard(geometry: GeometryProxy) -> some View {
             ZStack {
-                Color(red: 0/255, green: 0/255, blue: 0/255)
-                    .opacity(0.3)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.3), lineWidth: 3)
-                    )
+                Rectangle()
+                    .fill(.clear)
+                    .background(.ultraThinMaterial)
+                    .overlay(Color.black.opacity(0.4))
                     .frame(width: geometry.size.width, height: 108)
                     .cornerRadius(16)
-                    .clipped()
                 Text(createBaseTitle)
                     .font(.system(size: 35, weight: .semibold))
                     .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading) // 65% of screen width
@@ -1147,15 +1142,12 @@ struct ContentView: View {
         
         private func dynamicAudioCard(geometry: GeometryProxy, index: Int) -> some View {
             ZStack {
-                Color(red: 0/255, green: 0/255, blue: 0/255)
-                    .opacity(0.3)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.3), lineWidth: 3)
-                    )
+                Rectangle()
+                    .fill(.clear)
+                    .background(.ultraThinMaterial)
+                    .overlay(Color.black.opacity(0.4))
                     .frame(width: geometry.size.width, height: 108)
                     .cornerRadius(16)
-                    .clipped()
                 Text(index < createAdditionalTitles.count ? createAdditionalTitles[index] : "Audio \(index + 1)")
                     .font(.system(size: 35, weight: .semibold))
                     .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading) // 65% of screen width

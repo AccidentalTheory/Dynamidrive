@@ -97,14 +97,12 @@ struct CreatePage: View {
     private var baseAudioStack: some View {
         GeometryReader { geometry in
             ZStack {
-                Color.black.opacity(0.3)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.3), lineWidth: 3)
-                    )
+                Rectangle()
+                    .fill(.clear)
+                    .background(.ultraThinMaterial)
+                    .overlay(Color.black.opacity(0.4))
                     .frame(width: geometry.size.width, height: 108)
                     .cornerRadius(16)
-                    .clipped()
                 Text(createBaseTitle)
                     .font(.system(size: 35, weight: .semibold))
                     .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
@@ -139,14 +137,12 @@ struct CreatePage: View {
         ForEach(createAdditionalZStacks.indices, id: \.self) { index in
             GeometryReader { geometry in
                 ZStack {
-                    Color.black.opacity(0.3)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.white.opacity(0.3), lineWidth: 3)
-                        )
+                    Rectangle()
+                        .fill(.clear)
+                        .background(.ultraThinMaterial)
+                        .overlay(Color.black.opacity(0.4))
                         .frame(width: geometry.size.width, height: 108)
                         .cornerRadius(16)
-                        .clipped()
                     Text(createAdditionalTitles[index])
                         .font(.system(size: 35, weight: .semibold))
                         .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)

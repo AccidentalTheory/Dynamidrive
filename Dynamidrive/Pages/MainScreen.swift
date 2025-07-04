@@ -10,10 +10,15 @@ struct MainScreen: View {
     @Binding var showPlaybackPage: Bool
     @Binding var pendingSoundtrack: Soundtrack?
     @Binding var soundtracks: [Soundtrack]
+    @Binding var animateCards: Bool
+    @Binding var hasAnimatedOnce: Bool
     @Binding var isMainScreenEditMode: Bool
     @Binding var soundtracksBeingDeleted: Set<UUID>
     @EnvironmentObject private var audioController: AudioController
     @Binding var previousPage: AppPage?
+
+    
+    var cardAnimationDelay: Double = 0 // Default, can be configured
     
     var resetCreatePage: () -> Void
     var deleteSoundtrack: (Soundtrack) -> Void
@@ -21,42 +26,50 @@ struct MainScreen: View {
     var body: some View {
         ZStack {
             // Main Content
-            VStack(spacing: 40) {
-                if soundtracks.isEmpty {
-                    Spacer()
-                    VStack(spacing: 0) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 160))
-                            .foregroundColor(.white)
-                            .opacity(0.4)
-                            .frame(width: 180, height: 180)
-                        Text("Press the new button to make your first soundtrack")
-                            .font(.system(size: 24, weight: .medium))
-                            .foregroundColor(.white)
-                            .opacity(0.4)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.horizontal)
-                    Spacer()
-                    Spacer()
-                } else {
-                    ScrollView(.vertical, showsIndicators: false) {
-                        VStack(spacing: 10) {
-                            Color.clear.frame(height: UIScreen.main.bounds.height * 0.08)
-                            ForEach(soundtracks) { soundtrack in
-                                soundtrackCard(soundtrack: soundtrack)
-                                    .frame(height: 108)
-                                    .padding(.horizontal)
-                            }
+            Group {
+                VStack(spacing: 40) {
+                    if soundtracks.isEmpty {
+                        Spacer()
+                        VStack(spacing: 0) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 160))
+                                .foregroundColor(.white)
+                                .opacity(0.4)
+                                .frame(width: 180, height: 180)
+                            Text("Press the new button to make your first soundtrack")
+                                .font(.system(size: 24, weight: .medium))
+                                .foregroundColor(.white)
+                                .opacity(0.4)
+                                .multilineTextAlignment(.center)
                         }
-                        .animation(.easeInOut(duration: 0.3), value: soundtracks)
-                        .padding(.bottom, 100)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.horizontal)
+                        Spacer()
+                        Spacer()
+                    } else {
+                        InViewScrollEffect(triggerArea: 1, blur: 10, scale: 0.66) {
+                            ScrollView(.vertical, showsIndicators: false) {
+                                VStack(spacing: 14) {
+                                    Color.clear.frame(height: UIScreen.main.bounds.height * 0.08)
+                                    ForEach(soundtracks.indices, id: \.self) { index in
+                                        let soundtrack = soundtracks[index]
+                                        let delay = cardAnimationDelay + Double(index) * 0.1
+                                        InViewScrollEffect(triggerArea: 1, blur: 10, scale: 0.66) {
+                                            soundtrackCard(soundtrack: soundtrack, index: index, delay: delay)
+                                        }
+                                        .frame(height: 108)
+                                        .padding(.horizontal)
+                                    }
+                                }
+                                .animation(.easeInOut(duration: 0.3), value: soundtracks)
+                                .padding(.bottom, 100)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
                     }
-                    .frame(maxWidth: .infinity)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             
             // Header Layer
             VStack {
@@ -70,8 +83,6 @@ struct MainScreen: View {
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)
-                            .background(Color.white.opacity(0.2))
-                            .clipShape(Circle())
                             .glassEffect(.regular.tint(.clear).interactive())
                     }
                     Spacer()
@@ -86,10 +97,8 @@ struct MainScreen: View {
                     }) {
                         Image(systemName: isMainScreenEditMode ? "checkmark" : "minus.circle")
                             .font(.system(size: 20))
-                            .foregroundColor(isMainScreenEditMode ? .gray : .white)
+                            .foregroundColor(.white)
                             .frame(width: 50, height: 50)
-                            .background(Color.white.opacity(0.2))
-                            .clipShape(Circle())
                             .glassEffect(.regular.tint(.clear).interactive())
                     }
                 }
@@ -102,8 +111,19 @@ struct MainScreen: View {
             VStack {
                 Spacer()
                 HStack {
-                    Spacer()
                     Menu {
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.5)) {
+                                showImportPage = true
+                                showCreatePage = false
+                                currentPage = .create
+                            }
+                        }) {
+                            Label("Import Existing (Coming Soon)", systemImage: "square.and.arrow.down")
+                                .foregroundColor(.gray)
+                        }
+                        .disabled(true)
+                        
                         Button(action: {
                             withAnimation(.easeInOut(duration: 0.5)) {
                                 resetCreatePage()
@@ -115,38 +135,28 @@ struct MainScreen: View {
                         }) {
                             Label("Create New...", systemImage: "plus")
                         }
-                        
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.5)) {
-                                showImportPage = true
-                                showCreatePage = false
-                                currentPage = .create
-                            }
-                        }) {
-                            Label("Import Existing...", systemImage: "square.and.arrow.down")
-                        }
                     } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)
-                            .background(Color.white.opacity(0.2))
+                            .background(Color.white.opacity(0.0000001))
                             .clipShape(Circle())
                             .glassEffect(.regular.tint(.clear).interactive())
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .center)
                 .padding()
             }
         }
     }
     
-    private func soundtrackCard(soundtrack: Soundtrack) -> some View {
+    private func soundtrackCard(soundtrack: Soundtrack, index: Int, delay: Double) -> some View {
         ZStack {
             Rectangle()
                 .fill(.clear)
                 .background(.ultraThinMaterial)
-                .overlay(Color.black.opacity(0.4))
-                .frame(height: 108)
+                .overlay(Color.black.opacity(0.15))
                 .cornerRadius(16)
             Button(action: {
                 pendingSoundtrack = soundtrack
@@ -180,11 +190,10 @@ struct MainScreen: View {
                     }
                 }) {
                     Image(systemName: "minus")
-                        .font(.system(size: 16))
+                        .font(.system(size: 20))
                         .foregroundColor(.white)
-                        .frame(width: 30, height: 30)
-                        .background(Color.red)
-                        .clipShape(Circle())
+                        .frame(width: 50, height: 50)
+                        .glassEffect(.regular.tint(.red).interactive())
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.trailing, 20)
@@ -201,17 +210,63 @@ struct MainScreen: View {
                     }
                 }) {
                     Image(systemName: audioController.isSoundtrackPlaying && audioController.currentSoundtrackTitle == soundtrack.title ? "pause.fill" : "play.fill")
-                        .font(.system(size: 16))
+                        .font(.system(size: 20))
                         .foregroundColor(.white)
-                        .frame(width: 30, height: 30)
-                        .background(Color.white.opacity(0.2))
-                        .clipShape(Circle())
+                        .frame(width: 50, height: 50)
+                        .glassEffect(.regular.tint(.clear).interactive())
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.trailing, 20)
             }
         }
+        .modifier(FlyInCardEffect(isVisible: animateCards, delay: delay))
         .opacity(soundtracksBeingDeleted.contains(soundtrack.id) ? 0 : 1)
         .animation(.easeInOut(duration: 0.3), value: soundtracksBeingDeleted)
     }
 } 
+
+private struct FlyInCardEffect: ViewModifier {
+    let isVisible: Bool
+    let delay: Double
+    func body(content: Content) -> some View {
+        content
+            .opacity(isVisible ? 1 : 0)
+            .offset(y: isVisible ? 0 : 60)
+            .blur(radius: isVisible ? 0 : 24)
+            .animation(
+                isVisible ? .easeOut(duration: 0.6).delay(delay) : .none,
+                value: isVisible
+            )
+            .allowsHitTesting(isVisible)
+    }
+}
+
+private struct InViewScrollEffect<Content: View>: View {
+    let triggerArea: CGFloat // 0.92 for 92%
+    let blur: CGFloat
+    let scale: CGFloat
+    let content: () -> Content
+    @State private var visibleFraction: CGFloat = 1.0
+
+    var body: some View {
+        GeometryReader { proxy in
+            let frame = proxy.frame(in: .global)
+            let screen = UIScreen.main.bounds
+            // Amount of view that is within the screen vertical area
+            let visible = max(0, min(frame.maxY, screen.maxY) - max(frame.minY, screen.minY))
+            let fraction = min(max(visible / frame.height, 0), 1)
+            let trigger = (fraction > triggerArea) ? 1.0 : (fraction / triggerArea)
+
+            content()
+                .blur(radius: (1.0 - trigger) * blur)
+                .scaleEffect(1.0 - (1.0 - trigger) * (1.0 - scale))
+                .animation(.easeInOut(duration: 0.3), value: trigger)
+                .onAppear {
+                    visibleFraction = trigger
+                }
+                .onChange(of: fraction) { newValue in
+                    visibleFraction = trigger
+                }
+        }
+    }
+}
