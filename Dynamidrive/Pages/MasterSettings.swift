@@ -5,6 +5,9 @@ struct MasterSettings: View {
     @Binding var currentPage: AppPage
     @AppStorage("mapStyle") private var mapStyle: MapStyle = .standard
     @AppStorage("backgroundType") private var backgroundType: BackgroundType = .map
+    @AppStorage("locationTrackingEnabled") private var locationTrackingEnabled: Bool = true
+    @State private var showingDeleteConfirmation = false
+    @EnvironmentObject private var locationHandler: LocationHandler
     
     // Gradient Start Color Components
     @AppStorage("gradientStartRed") private var gradientStartRed: Double = 0
@@ -141,22 +144,54 @@ struct MasterSettings: View {
                     }
                     .padding(.vertical)
                     .background(Color.white.opacity(0.1))
-                    .cornerRadius(15)
+                    .cornerRadius(30)
+                }
+                .padding(.horizontal)
+                
+                // Location Privacy Section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("LOCATION PRIVACY")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                        .padding(.horizontal)
+                    
+                    VStack(spacing: 16) {
+                        Toggle("Track Distance Traveled", isOn: $locationTrackingEnabled)
+                            .foregroundColor(.white)
+                            .padding(.horizontal)
+                        
+                        Button(action: {
+                            showingDeleteConfirmation = true
+                        }) {
+                            Text("Delete All Distance Data")
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.white.opacity(0.12))
+                                )
+                                .glassEffect(.regular.tint(.red).interactive())
+                        }
+                        .padding(.horizontal)
+                    }
+                    .padding(.vertical)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(30)
                 }
                 .padding(.horizontal)
                 
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            
-            // Blur Layer
-            VStack(spacing: 0) {
-                ProgressiveBlurView()
-                    .frame(height: UIScreen.main.bounds.height * 0.15)
-                    .ignoresSafeArea()
-                Spacer()
+            .alert("Are you sure?", isPresented: $showingDeleteConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete", role: .destructive) {
+                    locationHandler.resetAllDistanceData()
+                }
+            } message: {
+                Text("This will completely reset all of your distance traveled data. It cannot be undone.")
             }
-            .ignoresSafeArea()
             
             // Empty stack between content and buttons
             ZStack {
@@ -177,7 +212,7 @@ struct MasterSettings: View {
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)
-                            .background(Color.white.opacity(0.2))
+                            
                             .clipShape(Circle())
                             .glassEffect(.regular.tint(.clear).interactive())
                     }

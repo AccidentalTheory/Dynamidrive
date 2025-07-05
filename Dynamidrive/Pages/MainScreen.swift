@@ -2,6 +2,12 @@ import SwiftUI
 import AVFoundation
 import UIKit
 
+extension Font {
+    static func ppNeueMachina(size: CGFloat) -> Font {
+        return .custom("PPNeueMachina-Ultrabold", size: size)
+    }
+}
+
 struct MainScreen: View {
     @Binding var currentPage: AppPage
     @Binding var showCreatePage: Bool
@@ -17,6 +23,7 @@ struct MainScreen: View {
     @EnvironmentObject private var audioController: AudioController
     @EnvironmentObject private var locationHandler: LocationHandler
     @Binding var previousPage: AppPage?
+    @AppStorage("locationTrackingEnabled") private var locationTrackingEnabled: Bool = true
 
     
     var cardAnimationDelay: Double = 0 // Default, can be configured
@@ -88,8 +95,18 @@ struct MainScreen: View {
                     }
                     Spacer()
                     Text("Dynamidrive")
-                        .font(.system(size: 25, weight: .medium))
-                        .foregroundColor(.white)
+                        .font(.ppNeueMachina(size: 25))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [
+                                    .white,
+                                    Color(red: 1, green: 1, blue: 1, opacity: 0.392) // 100/255 ≈ 0.392
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                     Spacer()
                     Button(action: {
                         let impact = UIImpactFeedbackGenerator(style: .medium)
@@ -178,9 +195,11 @@ struct MainScreen: View {
                                 .multilineTextAlignment(.leading)
                                 .lineLimit(1)
                             
-                            Text("Distance Played: \(String(format: "%.1f", audioController.isSoundtrackPlaying && pendingSoundtrack?.id == soundtrack.id ? locationHandler.currentSoundtrackDistance : 0.0)) mi")
-                                .foregroundColor(.gray)
-                                .font(.system(size: 16, weight: .medium))
+                            if locationTrackingEnabled {
+                                Text("Distance Played: \(Int(ceil(audioController.isSoundtrackPlaying && audioController.currentSoundtrackTitle == soundtrack.title ? locationHandler.currentSoundtrackDistance : 0.0))) mi")
+                                    .foregroundColor(.gray)
+                                    .font(.system(size: 16, weight: .medium))
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())

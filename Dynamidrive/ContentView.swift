@@ -147,6 +147,7 @@ class AudioController: ObservableObject {
         } else if currentSoundtrackTitle != title {
             if isSoundtrackPlaying {
                 currentPlayers.forEach { $0?.pause() }
+                locationHandler.stopDistanceTracking()
                 updateSyncTimer()
                 isSoundtrackPlaying = false
             }
@@ -2799,6 +2800,7 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var status: String = "Starting..."
     @Published var location: CLLocation?
     @Published var currentSoundtrackDistance: Double = 0.0  // Distance in miles
+    @AppStorage("locationTrackingEnabled") private var locationTrackingEnabled: Bool = true
     private var lastLocation: CLLocation?
     private var isTrackingDistance: Bool = false
     private let locationManager = CLLocationManager()
@@ -2844,8 +2846,8 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
         let speed = max(location.speed, 0)
         speedMPH = min(speed * 2.23694, 80)
         
-        // Calculate distance if tracking is enabled
-        if isTrackingDistance {
+        // Calculate distance if tracking is enabled and locationTrackingEnabled is true
+        if isTrackingDistance && locationTrackingEnabled {
             if let lastLoc = lastLocation {
                 let distanceInMeters = location.distance(from: lastLoc)
                 let distanceInMiles = distanceInMeters / 1609.34  // Convert meters to miles
@@ -2899,12 +2901,24 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
     func stopDistanceTracking() {
         isTrackingDistance = false
         lastLocation = nil
-        currentSoundtrackDistance = 0.0
     }
     
     func startDistanceTracking() {
         isTrackingDistance = true
         lastLocation = location
+        currentSoundtrackDistance = 0.0  // Reset distance when starting new tracking
+    }
+    
+    func resetAllDistanceData() {
+        // Reset current soundtrack distance
+        currentSoundtrackDistance = 0.0
+        lastLocation = nil
+        
+        // Reset any stored distance data in UserDefaults
+        if let bundleID = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+            UserDefaults.standard.synchronize()
+        }
     }
 }
 

@@ -10,5 +10,9 @@
 	</array>
 	<key>UIInterfaceOrientation</key>
 	<string>UIInterfaceOrientationPortrait</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>PPNeueMachina-Ultrabold.otf</string>
+	</array>
 </dict>
 </plist>
