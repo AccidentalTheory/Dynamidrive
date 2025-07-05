@@ -1,3 +1,11 @@
+//
+//  ContentView.swift
+//  Dynamidrive
+//
+//  Created by Kai del Castillo on 6/9/24.
+//
+
+
 import SwiftUI
 import CoreLocation
 import AVFoundation
