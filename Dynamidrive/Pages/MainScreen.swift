@@ -41,20 +41,34 @@ struct MainScreen: View {
                 VStack(spacing: 40) {
                     if soundtracks.isEmpty {
                         Spacer()
-                        VStack(spacing: 0) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 160))
-                                .foregroundColor(.white)
-                                .opacity(0.4)
-                                .frame(width: 180, height: 180)
-                            Text("Press the new button to make your first soundtrack")
-                                .font(.system(size: 24, weight: .medium))
-                                .foregroundColor(.white)
-                                .opacity(0.4)
-                                .multilineTextAlignment(.center)
+                        if hasGrantedLocationPermission {
+                            VStack(spacing: 0) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 160))
+                                    .foregroundColor(.white)
+                                    .opacity(0.4)
+                                    .frame(width: 180, height: 180)
+                                Text("Press the new button to make your first soundtrack")
+                                    .font(.system(size: 24, weight: .medium))
+                                    .foregroundColor(.white)
+                                    .opacity(0.4)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.horizontal)
+                        } else {
+                            VStack(spacing: 20) {
+                                Image(systemName: "location.slash.fill")
+                                    .font(.system(size: 160))
+                                    .foregroundColor(.white)
+                                    .opacity(0.4)
+                                    .frame(width: 180, height: 180)
+                                
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.horizontal)
+                            .padding(.top, 80)
                         }
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.horizontal)
                         Spacer()
                         Spacer()
                     } else {
@@ -118,10 +132,17 @@ struct MainScreen: View {
                     }) {
                         Image(systemName: isMainScreenEditMode ? "checkmark" : "minus.circle")
                             .font(.system(size: 20))
-                            .foregroundColor(.white)
+                            .foregroundColor(hasGrantedLocationPermission ? .white : .gray)
                             .frame(width: 50, height: 50)
                             .glassEffect(.regular.tint(.clear).interactive())
                     }
+                    .disabled(!hasGrantedLocationPermission)
+                    .simultaneousGesture(TapGesture().onEnded {
+                        if !hasGrantedLocationPermission {
+                            let generator = UINotificationFeedbackGenerator()
+                            generator.notificationOccurred(.error)
+                        }
+                    })
                 }
                 .padding(.horizontal)
                 .padding(.top, UIScreen.main.bounds.height * 0.01)
@@ -159,12 +180,13 @@ struct MainScreen: View {
                     } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 20))
-                            .foregroundColor(.white)
+                            .foregroundColor(hasGrantedLocationPermission ? .white : .gray)
                             .frame(width: 50, height: 50)
                             .background(Color.white.opacity(0.0000001))
                             .clipShape(Circle())
                             .glassEffect(.regular.tint(.clear).interactive())
                     }
+                    .disabled(!hasGrantedLocationPermission)
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding()
@@ -318,4 +340,3 @@ private struct InViewScrollEffect<Content: View>: View {
         }
     }
 }
-
