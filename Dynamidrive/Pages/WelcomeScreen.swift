@@ -475,6 +475,9 @@ struct WelcomeScreen: View {
                                 showAIMode = false
                                 sixthSectionHidden = false
                             }
+                        } else if showSixthSection {
+                            hasSeenWelcomeScreen = true
+                            isPresented = false
                         } else {
                             aiModeHidden = false
                             mapSettingsHidden = false
