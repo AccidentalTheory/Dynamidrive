@@ -24,7 +24,10 @@ struct MainScreen: View {
     @EnvironmentObject private var locationHandler: LocationHandler
     @Binding var previousPage: AppPage?
     @AppStorage("locationTrackingEnabled") private var locationTrackingEnabled: Bool = true
-
+    @AppStorage("hasSeenWelcomeScreen") private var hasSeenWelcomeScreen = false
+    @AppStorage("hasGrantedLocationPermission") private var hasGrantedLocationPermission = false
+    
+    @State private var showWelcomeScreen = false
     
     var cardAnimationDelay: Double = 0 // Default, can be configured
     
@@ -165,6 +168,17 @@ struct MainScreen: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding()
+            }
+        }
+        .sheet(isPresented: $showWelcomeScreen) {
+            WelcomeScreen(isPresented: $showWelcomeScreen)
+        }
+        .interactiveDismissDisabled()
+        .onChange(of: animateCards) { newValue in
+            if newValue && !hasSeenWelcomeScreen {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    showWelcomeScreen = true
+                }
             }
         }
     }

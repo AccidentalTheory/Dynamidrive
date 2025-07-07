@@ -302,6 +302,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // LocationHandler will check hasGrantedLocationPermission internally
         locationHandler.startLocationUpdates()
         return true
     }
@@ -381,6 +382,7 @@ struct ContentView: View {
     @State private var volumePageRemovalDirection: Edge = .leading
     @AppStorage("mapStyle") private var mapStyle: MapStyle = .standard
     @AppStorage("backgroundType") private var backgroundType: BackgroundType = .map
+    @AppStorage("hasGrantedLocationPermission") private var hasGrantedLocationPermission = false
     
     // Gradient Start Color Components
     @AppStorage("gradientStartRed") private var gradientStartRed: Double = 0
@@ -454,7 +456,6 @@ struct ContentView: View {
     @State private var showLandscapeSpeed: Bool = false
     @State private var showLengthMismatchAlert = false
     @State private var isSpinning = false
-    @State private var showFirstLaunchAlert = false
     @State private var previewTrackingTimer: Timer?
     @State private var isMainScreenEditMode = false
     @State private var useGaugeWithValues: Bool = false
@@ -520,7 +521,7 @@ struct ContentView: View {
         GeometryReader { geometry in
             ZStack {
                 // Fixed map and blur background for all pages
-                if backgroundType == .map {
+                if backgroundType == .map && hasGrantedLocationPermission {
                     Map(position: $cameraPosition, interactionModes: []) {
                         UserAnnotation()
                     }
@@ -642,9 +643,6 @@ struct ContentView: View {
             
             let defaults = UserDefaults.standard
             if !defaults.bool(forKey: "hasLaunchedBefore") {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
-                    showFirstLaunchAlert = true
-                }
                 defaults.set(true, forKey: "hasLaunchedBefore")
             }
         }
@@ -845,13 +843,6 @@ struct ContentView: View {
             if audioController.isSoundtrackPlaying {
                 print("App returning to foreground, audio already playing with Now Playing controls")
             }
-        }
-        .alert(isPresented: $showFirstLaunchAlert) {
-            Alert(
-                title: Text("Drive safely"),
-                message: Text("Do not let this app distract your driving. Please pay attention to the road."),
-                dismissButton: .default(Text("OK"))
-            )
         }
         .sheet(isPresented: $showPlaybackPage) {
             PlaybackPage(
@@ -2809,6 +2800,7 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var location: CLLocation?
     @Published var currentSoundtrackDistance: Double = 0.0  // Distance in miles
     @AppStorage("locationTrackingEnabled") private var locationTrackingEnabled: Bool = true
+    @AppStorage("hasGrantedLocationPermission") private var hasGrantedLocationPermission = false
     private var lastLocation: CLLocation?
     private var isTrackingDistance: Bool = false
     private let locationManager = CLLocationManager()
@@ -2822,6 +2814,11 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func startLocationUpdates() {
+        // Don't start location updates if permission hasn't been granted through welcome screen
+        if !hasGrantedLocationPermission {
+            return
+        }
+        
         let authStatus = locationManager.authorizationStatus
         print("Location authorization status on start: \(authStatus)")
         if authStatus == .notDetermined {
@@ -2887,10 +2884,12 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
         case .restricted, .denied:
             self.status = "Location access denied - check Settings"
             print("Location access denied or restricted")
+            hasGrantedLocationPermission = false
         case .authorizedWhenInUse:
             print("Received When In Use, requesting Always authorization")
             locationManager.requestAlwaysAuthorization()
             self.status = "Requesting Always permission..."
+            hasGrantedLocationPermission = true
         case .authorizedAlways:
             locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
             locationManager.distanceFilter = kCLDistanceFilterNone
@@ -2900,9 +2899,11 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
             locationManager.startUpdatingLocation()
             self.status = "Waiting for GPS fix..."
             print("Started location updates with Always authorization")
+            hasGrantedLocationPermission = true
         @unknown default:
             self.status = "Unknown authorization status"
             print("Unknown authorization status")
+            hasGrantedLocationPermission = false
         }
     }
     
