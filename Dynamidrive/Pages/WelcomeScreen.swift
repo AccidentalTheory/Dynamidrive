@@ -191,12 +191,12 @@ struct WelcomeScreen: View {
                         RoundedRectangle(cornerRadius: 20)
                             .fill(Color.white.opacity(0.1))
                             .frame(width: 90, height: 90)
-                        Image(systemName: "iphone.pattern.diagonallines")
+                        Image(systemName: "iphone.pattern.diagonalline")
                             .font(.system(size: 44, weight: .bold))
                             .foregroundColor(.white)
                             .frame(width: 90, height: 90)
                     }
-                    .padding(.top, 40)
+                    .padding(.top, 85)
                     
                     Text("Choose Your Background Style")
                         .font(.system(size: 30, weight: .bold))
@@ -286,7 +286,7 @@ struct WelcomeScreen: View {
                             .foregroundColor(.white)
                             .frame(width: 90, height: 90)
                     }
-                    .padding(.top, 40)
+                    .padding(.top, 85)
                     
                     Text("Track how many miles you listen to a Soundtrack")
                         .font(.system(size: 30, weight: .bold))
@@ -402,33 +402,31 @@ struct WelcomeScreen: View {
                             .foregroundColor(.white)
                             .frame(width: 90, height: 90)
                     }
-                    .padding(.top, 40)
-
-                    Text("Drive safe!")
+                    .padding(.top, 85)
+                        
+                    Text("Let's get started.")
                         .font(.system(size: 30, weight: .bold))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
+                       
+                        
+                    VStack(alignment: .leading, spacing: 10) {
+                        InfoRow(number: "1", text: "Upload some audio files that will dynamically change based on your speed.")
+                        InfoRow(number: "2", text: "Change when tracks fade in, and overall volume.")
+                        InfoRow(number: "3", text: "Your soundtrack is ready to hit the road!")
+                    }
+                    .padding(.horizontal, 40)
+                    .padding(.top, 10)
 
                     Text("I (the developer) am not responsible for what you do while driving. Be aware of posted speed limits and other signage.")
                         .font(.system(size: 15, weight: .regular))
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
-                        
-                    Text("Creating a soundtrack is easy!")
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 20)
-                        
-                    VStack(alignment: .leading, spacing: 10) {
-                        InfoRow(number: "1", text: "Upload some audio files that will dynamically change based on your speed")
-                        InfoRow(number: "2", text: "Change when tracks fade in, and overall volume")
-                        InfoRow(number: "3", text: "Your soundtrack is ready to hit the road!")
-                    }
-                    .padding(.horizontal, 40)
-                    .padding(.top, 10)
+                    
+                    
+                    .padding(.horizontal, 20)
+                    .padding(.top, 40)
 
                     Spacer()
                 }

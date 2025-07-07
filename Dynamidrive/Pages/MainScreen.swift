@@ -176,7 +176,7 @@ struct MainScreen: View {
         .interactiveDismissDisabled()
         .onChange(of: animateCards) { newValue in
             if newValue && !hasSeenWelcomeScreen {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     showWelcomeScreen = true
                 }
             }
