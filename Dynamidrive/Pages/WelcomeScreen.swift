@@ -334,9 +334,6 @@ struct WelcomeScreen: View {
                             .font(.system(size: 12))
                             .foregroundColor(.gray)
                     }
-                    .sheet(isPresented: $showPrivacyPolicy) {
-                        WebView(url: URL(string: "https://b-dog.co/pp")!)
-                    }
                     .padding(.horizontal, 40)
                     .padding(.top, 20)
                     Spacer()
@@ -471,9 +468,6 @@ struct WelcomeScreen: View {
                                 showAIMode = false
                                 sixthSectionHidden = false
                             }
-                        } else if showSixthSection {
-                            // Close the sheet
-                            isPresented = false
                         } else {
                             aiModeHidden = false
                             mapSettingsHidden = false
