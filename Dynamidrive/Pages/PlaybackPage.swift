@@ -213,12 +213,10 @@ struct PlaybackPage: View {
             if !displayTracks.isEmpty && displayTracks[0].audioFileName.contains("Base") {
                 GeometryReader { geometry in
                     ZStack {
-                        Color.black.opacity(0.3)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .stroke(Color.white.opacity(0.3), lineWidth: 3)
-                            )
-                            .frame(width: geometry.size.width, height: 108)
+                        Rectangle()
+                            .fill(.clear)
+                            .background(.ultraThinMaterial)
+                            .overlay(Color.black.opacity(0.15))
                             .cornerRadius(16)
                         HStack(alignment: .center, spacing: 0) {
                             Text(displayTracks[0].displayName)
@@ -242,13 +240,11 @@ struct PlaybackPage: View {
                 ForEach(1..<displayTracks.count, id: \.self) { index in
                     GeometryReader { geometry in
                         ZStack {
-                            Color.black.opacity(0.3)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(Color.white.opacity(0.3), lineWidth: 3)
-                                )
-                                .frame(width: geometry.size.width, height: 108)
-                                .cornerRadius(16)
+                            Rectangle()
+                            .fill(.clear)
+                            .background(.ultraThinMaterial)
+                            .overlay(Color.black.opacity(0.15))
+                            .cornerRadius(16)
                             if displayTracks[index].minimumSpeed == 0 && displayTracks[index].maximumSpeed == 0 {
                                 HStack(alignment: .center, spacing: 0) {
                                     Text(displayTracks[index].displayName)

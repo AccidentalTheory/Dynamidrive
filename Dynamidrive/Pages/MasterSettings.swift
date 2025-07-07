@@ -144,7 +144,7 @@ struct MasterSettings: View {
                     }
                     .padding(.vertical)
                     .background(Color.white.opacity(0.1))
-                    .cornerRadius(30)
+                    .cornerRadius(16)
                 }
                 .padding(.horizontal)
                 
@@ -218,11 +218,11 @@ struct MasterSettings: View {
                     }
                     
                     // Invisible button for layout balance
-                    Button(action: {}) {
-                        Color.clear
-                            .frame(width: 50, height: 50)
-                    }
-                    .opacity(0)
+                    //Button(action: {}) {
+                     //   Color.clear
+                         //   .frame(width: 50, height: 50)
+                   // }
+                   // .opacity(0)
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 8)
