@@ -28,6 +28,7 @@ struct MainScreen: View {
     @AppStorage("hasGrantedLocationPermission") private var hasGrantedLocationPermission = false
     
     @State private var showWelcomeScreen = false
+    @State private var showLocationDeniedView = false
     
     var cardAnimationDelay: Double = 0 // Default, can be configured
     
@@ -58,12 +59,15 @@ struct MainScreen: View {
                             .padding(.horizontal)
                         } else {
                             VStack(spacing: 20) {
-                                Image(systemName: "location.slash.fill")
-                                    .font(.system(size: 160))
-                                    .foregroundColor(.white)
-                                    .opacity(0.4)
-                                    .frame(width: 180, height: 180)
-                                
+                                Button(action: {
+                                    showLocationDeniedView = true
+                                }) {
+                                    Image(systemName: "location.slash.fill")
+                                        .font(.system(size: 160))
+                                        .foregroundColor(.white)
+                                        .opacity(0.4)
+                                        .frame(width: 180, height: 180)
+                                }
                             }
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.horizontal)
@@ -195,11 +199,20 @@ struct MainScreen: View {
         .sheet(isPresented: $showWelcomeScreen) {
             WelcomeScreen(isPresented: $showWelcomeScreen)
         }
+        .sheet(isPresented: $showLocationDeniedView) {
+            LocationDeniedView()
+        }
         .interactiveDismissDisabled()
         .onChange(of: animateCards) { newValue in
-            if newValue && !hasSeenWelcomeScreen {
-                DispatchQueue.main.asyncAfter(deadline: .now()) {
-                    showWelcomeScreen = true
+            if newValue {
+                if !hasSeenWelcomeScreen {
+                    DispatchQueue.main.asyncAfter(deadline: .now()) {
+                        showWelcomeScreen = true
+                    }
+                } else if !hasGrantedLocationPermission {
+                    DispatchQueue.main.asyncAfter(deadline: .now()) {
+                        showLocationDeniedView = true
+                    }
                 }
             }
         }
