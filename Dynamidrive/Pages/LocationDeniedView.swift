@@ -5,30 +5,16 @@ struct LocationDeniedView: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            Text(" ")
-                .font(.system(size: 30, weight: .bold))
-                .foregroundColor(.white)
-                .multilineTextAlignment(.center)
-                .padding(.top, 20)
             
-            Spacer()
             
             Image(systemName: "location.slash.fill")
-                .font(.system(size: 80))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [
-                            .red,
-                            Color(red: 1, green: 0, blue: 0, opacity: 0.6)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+                .font(.system(size: 100))
+                .foregroundColor(.red)
                 .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                .padding(.top, 80)
             
-            Text("Location Access Required")
-                .font(.system(size: 24, weight: .bold))
+            Text("Where are you?")
+                .font(.system(size: 30, weight: .bold))
                 .foregroundColor(.white)
                 .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                 .padding(.top, 20)
