@@ -12,6 +12,7 @@ class LocationViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let locationManager = CLLocationManager()
     @Published var locationStatus: CLAuthorizationStatus?
     var onPermissionGranted: (() -> Void)?
+    var onPermissionDenied: (() -> Void)?
     
     override init() {
         super.init()
@@ -30,6 +31,8 @@ class LocationViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
         case .authorizedWhenInUse, .authorizedAlways:
             locationManager.startUpdatingLocation()
             onPermissionGranted?()
+        case .denied, .restricted:
+            onPermissionDenied?()
         default:
             break
         }
@@ -58,6 +61,7 @@ struct WelcomeScreen: View {
     @AppStorage("mapStyle") private var mapStyle: MapStyle = .standard
     @AppStorage("backgroundType") private var backgroundType: BackgroundType = .map
     @AppStorage("locationTrackingEnabled") private var locationTrackingEnabled: Bool = true
+    @State private var showLocationDeniedView = false
 
     @AppStorage("gradientStartRed") private var gradientStartRed: Double = 0
     @AppStorage("gradientStartGreen") private var gradientStartGreen: Double = 122/255
@@ -334,6 +338,9 @@ struct WelcomeScreen: View {
                             .font(.system(size: 12))
                             .foregroundColor(.gray)
                     }
+                    .sheet(isPresented: $showPrivacyPolicy) {
+                        WebView(url: URL(string: "https://b-dog.co/pp")!)
+                    }
                     .padding(.horizontal, 40)
                     .padding(.top, 20)
                     Spacer()
@@ -489,6 +496,18 @@ struct WelcomeScreen: View {
                             .glassEffect(.regular.tint(.clear).interactive())
                     }
                     .padding(.bottom, 40)
+                }
+            }
+        }
+        .sheet(isPresented: $showLocationDeniedView) {
+            LocationDeniedView()
+        }
+        .onAppear {
+            locationViewModel.onPermissionDenied = {
+                hasSeenWelcomeScreen = true
+                isPresented = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    showLocationDeniedView = true
                 }
             }
         }
