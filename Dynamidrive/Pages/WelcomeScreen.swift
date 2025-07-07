@@ -471,6 +471,9 @@ struct WelcomeScreen: View {
                                 showAIMode = false
                                 sixthSectionHidden = false
                             }
+                        } else if showSixthSection {
+                            // Close the sheet
+                            isPresented = false
                         } else {
                             aiModeHidden = false
                             mapSettingsHidden = false
