@@ -162,14 +162,21 @@ struct WelcomeScreen: View {
             // New content sliding in
             if showingSecondPhase && !secondPhaseHidden {
                 VStack(spacing: 20) {
-                    Text("Just so you know, we really need this for the app to work.")
+                    Text("First thing's first")
+                        .font(.system(size: 30, weight: .bold))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 20)
+                    
+                    Spacer()
+                    
+                    Text("We really need your location for the app to work. Please select \"Allow while using app\" then \"Change to Always Allow\" so the music can update in the background.")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
-                        .padding(.top, 20)
-                    
-                    Spacer()
+                        .padding(.bottom, 1)
+                        .ignoresSafeArea()
                 }
                 .offset(x: (showMapSettings || showTrackingSettings) ? -UIScreen.main.bounds.width : (slideContent ? 0 : UIScreen.main.bounds.width))
                 .onAppear {
@@ -436,54 +443,56 @@ struct WelcomeScreen: View {
             // Button stays in place
             VStack {
                 Spacer()
-                Button(action: {
-                    if showMapSettings && !showTrackingSettings {
-                        withAnimation(.easeInOut(duration: 0.6)) {
-                            showTrackingSettings = true
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                            mapSettingsHidden = true
-                            showMapSettings = false
-                            secondPhaseHidden = true
-                        }
-                    } else if showTrackingSettings && !showAIMode {
-                        withAnimation(.easeInOut(duration: 0.6)) {
-                            showAIMode = true
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                if !(showingSecondPhase && !secondPhaseHidden) || (showMapSettings && !mapSettingsHidden) {
+                    Button(action: {
+                        if showMapSettings && !showTrackingSettings {
+                            withAnimation(.easeInOut(duration: 0.6)) {
+                                showTrackingSettings = true
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                mapSettingsHidden = true
+                                showMapSettings = false
+                                secondPhaseHidden = true
+                            }
+                        } else if showTrackingSettings && !showAIMode {
+                            withAnimation(.easeInOut(duration: 0.6)) {
+                                showAIMode = true
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                aiModeHidden = false
+                                showTrackingSettings = false
+                            }
+                        } else if showAIMode && !showSixthSection {
+                            withAnimation(.easeInOut(duration: 0.6)) {
+                                showSixthSection = true
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                aiModeHidden = true
+                                showAIMode = false
+                                sixthSectionHidden = false
+                            }
+                        } else {
                             aiModeHidden = false
-                            showTrackingSettings = false
+                            mapSettingsHidden = false
+                            secondPhaseHidden = false
+                            withAnimation(.easeInOut(duration: 0.6)) {
+                                showingSecondPhase = true
+                                slideContent = true
+                            }
+                            
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                locationViewModel.requestPermission()
+                            }
                         }
-                    } else if showAIMode && !showSixthSection {
-                        withAnimation(.easeInOut(duration: 0.6)) {
-                            showSixthSection = true
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                            aiModeHidden = true
-                            showAIMode = false
-                            sixthSectionHidden = false
-                        }
-                    } else {
-                        aiModeHidden = false
-                        mapSettingsHidden = false
-                        secondPhaseHidden = false
-                        withAnimation(.easeInOut(duration: 0.6)) {
-                            showingSecondPhase = true
-                            slideContent = true
-                        }
-                        
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            locationViewModel.requestPermission()
-                        }
+                    }) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 60, height: 60)
+                            .glassEffect(.regular.tint(.clear).interactive())
                     }
-                }) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(width: 60, height: 60)
-                        .glassEffect(.regular.tint(.clear).interactive())
+                    .padding(.bottom, 40)
                 }
-                .padding(.bottom, 40)
             }
         }
     }
