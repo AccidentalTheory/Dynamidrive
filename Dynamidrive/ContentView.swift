@@ -1041,7 +1041,7 @@ struct ContentView: View {
                 Rectangle()
                     .fill(.clear)
                     .background(.ultraThinMaterial)
-                    .overlay(Color.black.opacity(0.4))
+                    .overlay(Color.black.opacity(0.15))
                     .frame(width: geometry.size.width, height: 108)
                     .cornerRadius(16)
                 Text(createBaseTitle)
@@ -1064,8 +1064,9 @@ struct ContentView: View {
                         .font(.system(size: 20))
                         .foregroundColor(.white)
                         .frame(width: 50, height: 50)
-                        .background(Color.white.opacity(0.2))
+                  
                         .clipShape(Circle())
+                        .glassEffect(.regular.tint(.clear).interactive())
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.trailing, 20)
@@ -1149,7 +1150,7 @@ struct ContentView: View {
                 Rectangle()
                     .fill(.clear)
                     .background(.ultraThinMaterial)
-                    .overlay(Color.black.opacity(0.4))
+                    .overlay(Color.black.opacity(0.15))
                     .frame(width: geometry.size.width, height: 108)
                     .cornerRadius(16)
                 Text(index < createAdditionalTitles.count ? createAdditionalTitles[index] : "Audio \(index + 1)")
@@ -1172,8 +1173,9 @@ struct ContentView: View {
                         .font(.system(size: 20))
                         .foregroundColor(.white)
                         .frame(width: 50, height: 50)
-                        .background(Color.white.opacity(0.2))
+                       
                         .clipShape(Circle())
+                        .glassEffect(.regular.tint(.clear).interactive())
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.trailing, 20)

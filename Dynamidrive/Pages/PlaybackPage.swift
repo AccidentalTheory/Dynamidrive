@@ -241,10 +241,10 @@ struct PlaybackPage: View {
                     GeometryReader { geometry in
                         ZStack {
                             Rectangle()
-                            .fill(.clear)
-                            .background(.ultraThinMaterial)
-                            .overlay(Color.black.opacity(0.15))
-                            .cornerRadius(16)
+                                .fill(.clear)
+                                .background(.ultraThinMaterial)
+                                .overlay(Color.black.opacity(0.15))
+                                .cornerRadius(16)
                             if displayTracks[index].minimumSpeed == 0 && displayTracks[index].maximumSpeed == 0 {
                                 HStack(alignment: .center, spacing: 0) {
                                     Text(displayTracks[index].displayName)

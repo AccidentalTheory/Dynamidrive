@@ -9,7 +9,7 @@
 //.cornerRadius(16)
 
 
-//MARK: Liquid Glass Elements (Don't touch)
+//MARK: Liquid Glass Elements. NOTE: use this as a modifier, don't recreate!
 
 // .glassEffect(.regular.tint(.clear).interactive())
 

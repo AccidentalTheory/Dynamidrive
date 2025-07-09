@@ -108,7 +108,7 @@ struct MasterSettings: View {
                             .padding(.horizontal)
                         } else {
                             VStack(spacing: 16) {
-                                ColorPicker("Start Color", selection: Binding(
+                                ColorPicker("Top Color", selection: Binding(
                                     get: { gradientStartColor },
                                     set: { newValue in
                                         let uiColor = UIColor(newValue)
@@ -123,7 +123,7 @@ struct MasterSettings: View {
                                     }
                                 ))
                                     .foregroundColor(.white)
-                                ColorPicker("End Color", selection: Binding(
+                                ColorPicker("Bottom Color", selection: Binding(
                                     get: { gradientEndColor },
                                     set: { newValue in
                                         let uiColor = UIColor(newValue)
@@ -143,8 +143,13 @@ struct MasterSettings: View {
                         }
                     }
                     .padding(.vertical)
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(16)
+                    .background(
+                        Rectangle()
+                            .fill(.clear)
+                            .background(.ultraThinMaterial)
+                            .overlay(Color.black.opacity(0.15))
+                            .cornerRadius(16)
+                    )
                 }
                 .padding(.horizontal)
                 
@@ -176,8 +181,13 @@ struct MasterSettings: View {
                         .padding(.horizontal)
                     }
                     .padding(.vertical)
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(30)
+                    .background(
+                        Rectangle()
+                            .fill(.clear)
+                            .background(.ultraThinMaterial)
+                            .overlay(Color.black.opacity(0.15))
+                            .cornerRadius(16)
+                    )
                 }
                 .padding(.horizontal)
                 
@@ -233,3 +243,4 @@ struct MasterSettings: View {
         }
     }
 } 
+

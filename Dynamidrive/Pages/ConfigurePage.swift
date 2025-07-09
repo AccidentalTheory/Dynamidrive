@@ -57,8 +57,8 @@ struct ConfigurePage: View {
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)
-                            .background(Color.white.opacity(0.2))
                             .clipShape(Circle())
+                            .glassEffect(.regular.tint(.clear).interactive())
                     }
                     
                     Button(action: {
@@ -68,8 +68,8 @@ struct ConfigurePage: View {
                             .font(.system(size: 24))
                             .foregroundColor(.white)
                             .frame(width: 80, height: 50)
-                            .background(Color.white.opacity(0.2))
                             .clipShape(Capsule())
+                            .glassEffect(.regular.tint(.clear).interactive())
                     }
                     
                     Button(action: {
@@ -83,8 +83,9 @@ struct ConfigurePage: View {
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)
-                            .background(Color.white.opacity(0.2))
+                            
                             .clipShape(Circle())
+                            .glassEffect(.regular.tint(.clear).interactive())
                     }
                 }
                 .padding(.horizontal)
@@ -137,15 +138,11 @@ struct ConfigurePage: View {
         )
         
         return ZStack {
-            Color(red: 0/255, green: 0/255, blue: 0/255)
-                .opacity(0.3)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.white.opacity(0.3), lineWidth: 3)
-                        )
-                .frame(width: geometry.size.width, height: 160)
+            Rectangle()
+                .fill(.clear)
+                .background(.ultraThinMaterial)
+                .overlay(Color.black.opacity(0.15))
                 .cornerRadius(16)
-                .clipped()
             VStack(spacing: 2) {
                 TextField("Audio \(index + 1)", text: Binding(
                     get: { index < createAdditionalTitles.count ? createAdditionalTitles[index] : "Audio \(index + 1)" },
@@ -209,13 +206,14 @@ struct ConfigurePage: View {
                     .font(.system(size: 16))
                     .foregroundColor(alwaysPlaying.wrappedValue ? Color(red: 0.5, green: 0.5, blue: 0.5) : .white)
                     .frame(width: 30, height: 30)
-                    .background(alwaysPlaying.wrappedValue ? Color.white : Color.white.opacity(0.2))
+                   
                     .clipShape(Circle())
+                    .glassEffect(.regular.tint(.clear).interactive())
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             .padding(.trailing, 15)
             .padding(.bottom, 10)
-            .offset(y: -12)
+            .offset(y: -7)
         }
         .animation(.easeInOut(duration: 0.3), value: alwaysPlaying.wrappedValue)
     }
@@ -235,8 +233,9 @@ struct ConfigurePage: View {
             .submitLabel(.done)
             .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, maxHeight: 50)
-            .background(Color.white.opacity(0.2))
-            .cornerRadius(8)
+            .background(.ultraThinMaterial)
+            .overlay(Color.black.opacity(0.15))
+            .cornerRadius(16)
     }
     
     @ViewBuilder
@@ -245,15 +244,11 @@ struct ConfigurePage: View {
             if createBaseAudioURL != nil {
                 GeometryReader { geometry in
                     ZStack {
-                        Color(red: 0/255, green: 0/255, blue: 0/255)
-                            .opacity(0.3)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.white.opacity(0.3), lineWidth: 3)
-                                    )
-                            .frame(width: geometry.size.width, height: 108)
+                        Rectangle()
+                            .fill(.clear)
+                            .background(.ultraThinMaterial)
+                            .overlay(Color.black.opacity(0.15))
                             .cornerRadius(16)
-                            .clipped()
                         VStack(spacing: 0) {
                             TextField("Base", text: $createBaseTitle)
                             

@@ -123,8 +123,9 @@ struct CreatePage: View {
                         .font(.system(size: 20))
                         .foregroundColor(.white)
                         .frame(width: 50, height: 50)
-                        .background(Color.white.opacity(0.2))
+                        
                         .clipShape(Circle())
+                        .glassEffect(.regular.tint(.clear).interactive())
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.trailing, 20)
