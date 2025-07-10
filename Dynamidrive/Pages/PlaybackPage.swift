@@ -71,22 +71,20 @@ struct PlaybackPage: View {
                     HStack {
                         Spacer()
                         VStack {
-                            if currentHeight > 150 && currentHeight <= 220 { // Show title only in 200 detent
-                                Spacer()
-                                Spacer()
-                                Spacer()
-                                Spacer()
+                            if currentHeight > 100 && currentHeight <= 150 {
+                            
                                 Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
                                     .font(.system(size: 35, weight: .bold))
                                     .foregroundColor(.white)
-                                    .padding(.bottom, 16)
+                                    
                                     .minimumScaleFactor(0.5)
                                     .lineLimit(1)
                                     .frame(maxWidth: UIScreen.main.bounds.width * 0.8)
+                                    .padding(.top, 30)
                                 playbackButtons()
                                 Spacer()
                             } else {
-                                // Center controls in 100-point detent
+                                
                                 Spacer()
                                 playbackButtons()
                                 Spacer()
@@ -95,52 +93,60 @@ struct PlaybackPage: View {
                         Spacer()
                     }
                 } else {
-                    // Full view with all content
-                    VStack(spacing: 20) {
-                        // Header
-                        HStack {
-                            Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
-                                .font(.system(size: 35, weight: .bold))
-                                .foregroundColor(.white)
-                            Spacer()
-                            Button(action: {
-                                showShareSheet = true
-                            }) {
-                                Image(systemName: "square.and.arrow.up")
-                                    .font(.system(size: 20))
+                    ZStack {
+                        ScrollView(.vertical, showsIndicators: false) {
+                            trackList()
+                                .padding(.horizontal)
+                                .padding(.top, 140)
+                                .padding(.bottom, 140)
+                        }
+                        .ignoresSafeArea()
+
+                        VStack(spacing: 20) {
+                            // Header
+                            HStack {
+                                Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
+                                    .font(.system(size: 35, weight: .bold))
                                     .foregroundColor(.white)
-                                    .frame(width: 30, height: 30)
+                                Spacer()
+                                Button(action: {
+                                    showShareSheet = true
+                                }) {
+                                    Image(systemName: "square.and.arrow.up")
+                                        .font(.system(size: 20))
+                                        .foregroundColor(.white)
+                                        .frame(width: 30, height: 30)
+                                }
                             }
-                        }
-                        .padding(.horizontal)
-                        
-                        // Speed Gauge
-                        GeometryReader { geometry in
-                            speedGauge(geometry: geometry, displayedSpeed: Int(locationHandler.speedMPH.rounded()), animatedSpeed: .constant(locationHandler.speedMPH))
-                        }
-                        .frame(height: 50)
-                        .padding(.horizontal)
-                        
-                        // Track List
-                        ScrollView {
-                            VStack(spacing: 20) {
-                                trackList()
-                                    .padding(.horizontal)
+                            .padding(.horizontal)
+                            
+                            // Speed Gauge
+                            GeometryReader { geometry in
+                                speedGauge(geometry: geometry, displayedSpeed: Int(locationHandler.speedMPH.rounded()), animatedSpeed: .constant(locationHandler.speedMPH))
                             }
-                        }
-                        
-                        // Playback Controls
-                        HStack {
-                            Spacer()
-                            playbackButtons()
+                            .frame(height: 50)
+                            .padding(.horizontal)
+                            
                             Spacer()
                         }
+
+                        VStack {
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                playbackButtons()
+                                Spacer()
+                            }
+                            .padding(.bottom, geometry.safeAreaInsets.bottom + 20)
+                        }
+                        .ignoresSafeArea()
                     }
-                    .padding(16)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .padding(.top, 30)
                 }
             }
             .background(.clear)
-            .ignoresSafeArea(.keyboard)
+            .ignoresSafeArea()
             .sheet(isPresented: $showShareSheet) {
                 ShareSheet(activityItems: prepareForSharing())
             }
@@ -276,17 +282,17 @@ struct PlaybackPage: View {
                                             }
                                             .gaugeStyle(.linearCapacity)
                                             .tint(.gray)
-                                            .frame(width: geometry.size.width * 0.75, height: 10)
+                                            .frame(width: geometry.size.width * 0.69, height: 10)
                                             .animation(.easeInOut(duration: 1.0), value: locationHandler.speedMPH)
                                             Text("\(displayTracks[index].maximumSpeed)")
                                                 .font(.system(size: 16, weight: .bold))
                                                 .foregroundColor(.white.opacity(0.5))
                                                 .scaleEffect(maxSpeedScale[index] ?? 1.0)
                                         }
-                                                                        .padding(.horizontal, 16)
-                                .offset(y: 20)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .center)
+                                        .padding(.horizontal, 16)
+                                        .offset(y: 20)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .center)
                                     
                                     AudioBarsView(isPlaying: audioController.isSoundtrackPlaying, currentSoundtrackTitle: displayedTitle)
                                         .frame(width: 70, height: 50)
@@ -301,6 +307,7 @@ struct PlaybackPage: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .center)
     }
     
     @ViewBuilder
@@ -368,7 +375,7 @@ struct PlaybackPage: View {
                         .glassEffect(.regular.tint(.clear).interactive())
                 }
             }
-            .padding(.horizontal)
+           // .padding(.horizontal)
             .padding(.bottom, 8)
             .background(Color.clear)
         }

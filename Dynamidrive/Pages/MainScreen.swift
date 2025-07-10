@@ -30,14 +30,13 @@ struct MainScreen: View {
     @State private var showWelcomeScreen = false
     @State private var showLocationDeniedView = false
     
-    var cardAnimationDelay: Double = 0 // Default, can be configured
+    var cardAnimationDelay: Double = 0
     
     var resetCreatePage: () -> Void
     var deleteSoundtrack: (Soundtrack) -> Void
     
     var body: some View {
         ZStack {
-            // Main Content
             Group {
                 VStack(spacing: 40) {
                     if soundtracks.isEmpty {
@@ -99,8 +98,7 @@ struct MainScreen: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            
-            // Header Layer
+
             VStack {
                 HStack {
                     Button(action: {
@@ -118,7 +116,7 @@ struct MainScreen: View {
                             LinearGradient(
                                 colors: [
                                     .white,
-                                    Color(red: 1, green: 1, blue: 1, opacity: 0.392) // 100/255 ≈ 0.392
+                                    Color(red: 1, green: 1, blue: 1, opacity: 0.392)
                                 ],
                                 startPoint: .top,
                                 endPoint: .bottom
@@ -147,7 +145,6 @@ struct MainScreen: View {
                 Spacer()
             }
             
-            // Bottom Buttons Container
             VStack {
                 Spacer()
                 HStack {
@@ -260,13 +257,13 @@ struct MainScreen: View {
                     }
                 } else {
                     Button(action: {
-                        // Mark the soundtrack as being deleted
+                       
                         soundtracksBeingDeleted.insert(soundtrack.id)
-                        // Animate the fade-out and then delete
+                        
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            // The opacity will change due to the binding in the modifier below
+                            
                         }
-                        // Delay the actual deletion until the animation completes
+                        
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             deleteSoundtrack(soundtrack)
                             soundtracksBeingDeleted.remove(soundtrack.id)
@@ -305,7 +302,7 @@ private struct FlyInCardEffect: ViewModifier {
 }
 
 private struct InViewScrollEffect<Content: View>: View {
-    let triggerArea: CGFloat // 0.92 for 92%
+    let triggerArea: CGFloat
     let blur: CGFloat
     let scale: CGFloat
     let content: () -> Content
@@ -315,7 +312,7 @@ private struct InViewScrollEffect<Content: View>: View {
         GeometryReader { proxy in
             let frame = proxy.frame(in: .global)
             let screen = UIScreen.main.bounds
-            // Amount of view that is within the screen vertical area
+            
             let visible = max(0, min(frame.maxY, screen.maxY) - max(frame.minY, screen.minY))
             let fraction = min(max(visible / frame.height, 0), 1)
             let trigger = (fraction > triggerArea) ? 1.0 : (fraction / triggerArea)

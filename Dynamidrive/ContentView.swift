@@ -583,7 +583,7 @@ struct ContentView: View {
                             volumeScreen
                                 .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: volumePageRemovalDirection)))
                         case .playback:
-                            EmptyView() // Remove the direct view presentation since we'll use a sheet
+                            EmptyView()
                         case .edit:
                             editScreen
                                 .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
@@ -619,7 +619,7 @@ struct ContentView: View {
                                 ))
                         }
                     }
-                    .zIndex(9) // Current page is on top
+                    .zIndex(9)
                 }
             }
         }
@@ -652,11 +652,11 @@ struct ContentView: View {
                     hasCompletedInitialLoad = true
                     currentPage = .main
                     isReturningFromConfigure = false
-                    createPageRemovalDirection = .leading // Reset
-                    volumePageRemovalDirection = .leading // Reset
-                    configurePageInsertionDirection = .trailing // Reset
+                    createPageRemovalDirection = .leading
+                    volumePageRemovalDirection = .leading
+                    configurePageInsertionDirection = .trailing
                     
-                    // Start card animations after a short delay
+                    
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         withAnimation {
                             animateCards = true
@@ -679,11 +679,11 @@ struct ContentView: View {
         }
         .onChange(of: showConfigurePage, initial: false) { _, newValue in
             print("showConfigurePage changed to: \(newValue), currentPage: \(currentPage), showCreatePage: \(showCreatePage)")
-            // Set directions before the animation starts
+            
             if !newValue && currentPage == .configure && showCreatePage {
-                configurePageRemovalDirection = .trailing // Configure slides out to right
-                createPageInsertionDirection = .leading // Create slides in from left
-                createPageRemovalDirection = .leading // Maintain default removal
+                configurePageRemovalDirection = .trailing
+                createPageInsertionDirection = .leading
+                createPageRemovalDirection = .leading
                 print("Set directions before transition - configurePageRemovalDirection: \(configurePageRemovalDirection), createPageInsertionDirection: \(createPageInsertionDirection)")
             }
             
@@ -693,13 +693,10 @@ struct ContentView: View {
                 isReturningFromConfigure = !newValue
                 previousPage = newValue ? oldPage : .configure
                 if newValue {
-                    // Going to configurePage, use default directions
                     currentPage = .configure
                     print("Navigating to configurePage - configurePageInsertionDirection: \(configurePageInsertionDirection), configurePageRemovalDirection: \(configurePageRemovalDirection)")
                 } else {
-                    // Returning from configurePage
                     if oldPage == .configure && showCreatePage {
-                        // Returning to createPage
                         currentPage = .create
                         print("During transition to createPage - configurePageRemovalDirection: \(configurePageRemovalDirection), createPageInsertionDirection: \(createPageInsertionDirection)")
                     } else {
@@ -712,9 +709,9 @@ struct ContentView: View {
             
             if !newValue && currentPage == .create {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    configurePageRemovalDirection = .leading // Restore default
-                    createPageInsertionDirection = .trailing // Restore default
-                    createPageRemovalDirection = .leading // Restore default
+                    configurePageRemovalDirection = .leading
+                    createPageInsertionDirection = .trailing
+                    createPageRemovalDirection = .leading
                     print("Reset directions after transition - configurePageRemovalDirection: \(configurePageRemovalDirection), createPageInsertionDirection: \(createPageInsertionDirection)")
                 }
             }
@@ -731,22 +728,18 @@ struct ContentView: View {
         }
         .onChange(of: showPlaybackPage, initial: false) { _, newValue in
             if !newValue {
-                // When closing the playback sheet, return to the previous page
                 withAnimation(.easeInOut(duration: 0.5)) {
                     currentPage = previousPage == .volume ? .volume : .main
                 }
             }
         }
         .onChange(of: locationHandler.speedMPH) { oldValue, newSpeed in
-            // Update displayedSpeed immediately for the numerical display
             displayedSpeed = Int(newSpeed.rounded())
             
-            // Animate animatedSpeed for the gauge
             withAnimation(.easeInOut(duration: 1.0)) {
                 animatedSpeed = newSpeed
             }
             
-            // Adjust volumes for all playing tracks
             withAnimation(.easeInOut(duration: 1.0)) {
                 for (index, player) in audioController.currentPlayers.enumerated() {
                     if let player = player, player.isPlaying {
@@ -761,14 +754,14 @@ struct ContentView: View {
         }
         .onChange(of: showEditPage, initial: false) { _, newValue in
             if newValue {
-                // Going to edit page: set removal direction before animation
+                
                 playbackPageRemovalDirection = .leading
                 withAnimation(.easeInOut(duration: 0.5)) {
                     previousPage = currentPage
                     currentPage = .edit
                 }
             } else {
-                // Returning to playback page
+                
                 withAnimation(.easeInOut(duration: 0.5)) {
                     previousPage = .edit
                     currentPage = .playback
@@ -776,20 +769,19 @@ struct ContentView: View {
                     playbackPageRemovalDirection = .trailing
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    self.playbackPageInsertionDirection = .trailing // Reset to default
+                    self.playbackPageInsertionDirection = .trailing
                 }
             }
         }
         .onChange(of: showSpeedDetailPage, initial: false) { _, newValue in
             if newValue {
-                // Going to speed detail page
                 playbackPageRemovalDirection = .leading
                 withAnimation(.easeInOut(duration: 0.5)) {
                     previousPage = currentPage
                     currentPage = .speedDetail
                 }
             } else {
-                // Returning to playback page
+             
                 withAnimation(.easeInOut(duration: 0.5)) {
                     previousPage = .speedDetail
                     currentPage = .playback
@@ -797,7 +789,7 @@ struct ContentView: View {
                     playbackPageRemovalDirection = .trailing
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    self.playbackPageInsertionDirection = .trailing // Reset to default
+                    self.playbackPageInsertionDirection = .trailing
                 }
             }
         }
@@ -812,12 +804,9 @@ struct ContentView: View {
             }
         }
         .onChange(of: currentPage) { oldPage, newPage in
-            // Enforce portrait orientation for playback and settings pages
             if newPage == .playback || newPage == .settings {
                 setDeviceOrientation(.portrait)
             }
-            
-            // Handle masterSettings page transition
             if newPage == .masterSettings {
                 withAnimation(.easeInOut(duration: 0.5)) {
                     previousPage = oldPage
@@ -825,7 +814,6 @@ struct ContentView: View {
             } else if newPage == .main && oldPage == .masterSettings {
                 withAnimation(.easeInOut(duration: 0.5)) {
                     previousPage = .masterSettings
-                    // Force main to slide in from left
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         withAnimation(.easeInOut(duration: 0.5)) {
                             currentPage = .main
@@ -853,7 +841,7 @@ struct ContentView: View {
                 isRewindShowingCheckmark: $isRewindShowingCheckmark
             )
             .environmentObject(locationHandler)
-            .presentationDetents([.height(100), .height(200), .large], selection: .constant(.large))
+            .presentationDetents([.height(100), .height(150), .large], selection: .constant(.large))
             .presentationDragIndicator(.visible)
             .presentationBackground(.clear)
         }
@@ -908,7 +896,6 @@ struct ContentView: View {
         
         private var createPageContent: some View {
             ZStack {
-                // Background content
                 ScrollView {
                     VStack(spacing: 40) {
                         HStack {
@@ -930,19 +917,17 @@ struct ContentView: View {
                             dynamicAudioStacks
                             addAudioButton
                         }
-                        Spacer().frame(height: 100) // Add space at bottom for buttons
+                        Spacer().frame(height: 100)
                     }
                     .padding()
                     .offset(y: -15)
                 }
 
-                // Empty stack between content and buttons
                 ZStack {
                 }
                 .frame(height: 150)
                 .allowsHitTesting(false)
 
-                // Fixed bottom controls
                 VStack {
                     Spacer()
                     HStack(spacing: 80) {
@@ -966,7 +951,6 @@ struct ContentView: View {
                         .opacity(createBaseAudioURL != nil && createAdditionalZStacks.contains(where: { $0.audioURL != nil }) ? 1.0 : 0.5)
                         
                         ZStack {
-                            // Gradient image positioned directly behind the button
                             Image("Gradient")
                                 .resizable()
                                 .scaledToFit()
@@ -974,13 +958,13 @@ struct ContentView: View {
                                 .frame(width: 115, height: 115)
                                 .rotationEffect(.degrees(gradientRotation))
                                 .onAppear {
-                                    gradientRotation = 0 // Reset rotation
+                                    gradientRotation = 0
                                     withAnimation(Animation.linear(duration: 10).repeatForever(autoreverses: false)) {
                                         gradientRotation = 360
                                     }
                                 }
                                 .onDisappear {
-                                    gradientRotation = 0 // Reset rotation when view disappears
+                                    gradientRotation = 0
                                 }
                             
                             Button(action: {
@@ -1032,9 +1016,9 @@ struct ContentView: View {
                 GlobalCardAppearance
                 Text(createBaseTitle)
                     .font(.system(size: 35, weight: .semibold))
-                    .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading) // 65% of screen width
-                    .minimumScaleFactor(0.3) // Allows shrinking to 50% of size if needed
-                    .multilineTextAlignment(.leading) // Left-align new lines
+                    .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
+                    .minimumScaleFactor(0.3)
+                    .multilineTextAlignment(.leading)
                     .lineLimit(2)
                     .offset(x:-40)
                     .foregroundColor(.white)
@@ -1132,9 +1116,9 @@ struct ContentView: View {
                 GlobalCardAppearance
                 Text(index < createAdditionalTitles.count ? createAdditionalTitles[index] : "Audio \(index + 1)")
                     .font(.system(size: 35, weight: .semibold))
-                    .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading) // 65% of screen width
-                    .minimumScaleFactor(0.3) // Allows shrinking to 50% of size if needed
-                    .multilineTextAlignment(.leading) // Left-align new lines
+                    .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
+                    .minimumScaleFactor(0.3)
+                    .multilineTextAlignment(.leading)
                     .lineLimit(2)
                     .offset(x:-40)
                     .foregroundColor(.white)
@@ -2474,19 +2458,19 @@ struct ContentView: View {
                 .opacity(showAIUploadPage ? 1 : 0)
                 .animation(.easeInOut(duration: 1.0).delay(1.0), value: showAIUploadPage)
             
-            // Main content
+
             VStack(spacing: 0) {
                 Spacer()
                     .frame(height:1)
                 
-                // Upload section
+
                 VStack(alignment: .leading, spacing: 15) {
                     Text("Upload a song")
                         .font(.system(size: 24, weight: .semibold))
                         .foregroundColor(.white)
                     
                     Button(action: {
-                        // Add file picker action here
+
                     }) {
                         HStack {
                             Image(systemName: "plus")
@@ -2506,7 +2490,7 @@ struct ContentView: View {
                 
                 .padding()
                 
-                // Custom separator
+
                 HStack {
                     Rectangle()
                         .frame(height: 1)
@@ -2524,7 +2508,7 @@ struct ContentView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 5)
                 
-                // YouTube search section
+
                 VStack(alignment: .leading, spacing: 15) {
                     Text("Find a song on YouTube")
                         .font(.system(size: 24, weight: .semibold))
@@ -2544,7 +2528,7 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                // Instructions at the bottom
+
                 VStack(alignment: .leading, spacing: 10) {
                     InfoRow(number: "1", text: "Upload an audio file")
                     InfoRow(number: "2", text: "Chose what stems to seperate")
@@ -2555,17 +2539,14 @@ struct ContentView: View {
                 .padding()
                 .background(GlobalCardAppearance)
                 .padding(.horizontal)
-                .padding(.bottom, 90) // Increased bottom padding to position instructions higher
+                .padding(.bottom, 90)
             }
             
-            // Empty stack between content and buttons
             ZStack {
             }
             .frame(height: 150)
             .allowsHitTesting(false)
 
-            
-            // Fixed bottom controls
             VStack {
                 Spacer()
                 HStack(spacing: 240) {
@@ -2579,7 +2560,6 @@ struct ContentView: View {
                             .globalButtonStyle()
                     }
                     
-                    // Invisible button for layout balance
                     Button(action: {}) {
                         Color.clear
                             .frame(width: 50, height: 50)
