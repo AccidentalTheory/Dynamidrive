@@ -15,15 +15,7 @@ struct BaseAudioControl: View {
     
     var body: some View {
         ZStack {
-            Color(red: 0/255, green: 0/255, blue: 0/255)
-                .opacity(0.3)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.3), lineWidth: 3)
-                )
-                .frame(width: geometry.size.width, height: 108)
-                .cornerRadius(16)
-                .clipped()
+            GlobalCardAppearance
             VStack(spacing: 4) {
                 Text(title)
                     .font(.system(size: 42, weight: .semibold))
@@ -55,15 +47,8 @@ struct AdditionalAudioControl: View {
     
     var body: some View {
         ZStack {
-            Color(red: 0/255, green: 0/255, blue: 0/255)
-                .opacity(0.3)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.3), lineWidth: 3)
-                )
-                .frame(width: geometry.size.width, height: 108)
-                .cornerRadius(16)
-                .clipped()
+            GlobalCardAppearance
+        
             VStack(spacing: 4) {
                 Text(index < titles.count ? titles[index] : "Audio \(index + 1)")
                     .font(.system(size: 35, weight: .semibold))
@@ -153,8 +138,9 @@ struct VolumeScreen: View {
                 .font(.system(size: 20))
                 .foregroundColor(.white)
                 .frame(width: 50, height: 50)
-                .background(Color.white.opacity(0.2))
+               
                 .clipShape(Circle())
+                .glassEffect(.regular.tint(.clear).interactive())
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         .padding()

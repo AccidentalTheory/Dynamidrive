@@ -213,11 +213,7 @@ struct PlaybackPage: View {
             if !displayTracks.isEmpty && displayTracks[0].audioFileName.contains("Base") {
                 GeometryReader { geometry in
                     ZStack {
-                        Rectangle()
-                            .fill(.clear)
-                            .background(.ultraThinMaterial)
-                            .overlay(Color.black.opacity(0.15))
-                            .cornerRadius(16)
+                        GlobalCardAppearance
                         HStack(alignment: .center, spacing: 0) {
                             Text(displayTracks[0].displayName)
                                 .font(.system(size: 35, weight: .semibold))
@@ -240,11 +236,7 @@ struct PlaybackPage: View {
                 ForEach(1..<displayTracks.count, id: \.self) { index in
                     GeometryReader { geometry in
                         ZStack {
-                            Rectangle()
-                                .fill(.clear)
-                                .background(.ultraThinMaterial)
-                                .overlay(Color.black.opacity(0.15))
-                                .cornerRadius(16)
+                            GlobalCardAppearance
                             if displayTracks[index].minimumSpeed == 0 && displayTracks[index].maximumSpeed == 0 {
                                 HStack(alignment: .center, spacing: 0) {
                                     Text(displayTracks[index].displayName)

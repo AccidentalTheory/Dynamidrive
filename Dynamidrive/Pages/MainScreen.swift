@@ -157,6 +157,7 @@ struct MainScreen: View {
             VStack {
                 Spacer()
                 HStack {
+                    Spacer()
                     Menu {
                         Button(action: {
                             withAnimation(.easeInOut(duration: 0.5)) {
@@ -191,9 +192,9 @@ struct MainScreen: View {
                             .glassEffect(.regular.tint(.clear).interactive())
                     }
                     .disabled(!hasGrantedLocationPermission)
+                    Spacer()
                 }
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding()
+                .padding(.bottom, 12)
             }
         }
         .sheet(isPresented: $showWelcomeScreen) {
@@ -220,11 +221,7 @@ struct MainScreen: View {
     
     private func soundtrackCard(soundtrack: Soundtrack, index: Int, delay: Double) -> some View {
         ZStack {
-            Rectangle()
-                .fill(.clear)
-                .background(.ultraThinMaterial)
-                .overlay(Color.black.opacity(0.15))
-                .cornerRadius(16)
+            GlobalCardAppearance
             
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {

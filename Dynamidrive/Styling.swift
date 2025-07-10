@@ -1,21 +1,40 @@
+import SwiftUI
 
+//MARK: Cards
 
-// MARK: Card Backgrounds
+  let GlobalCardAppearance: AnyView = AnyView(
+      Rectangle()
+          .fill(.clear)
+          .background(.ultraThinMaterial)
+          .overlay(Color.black.opacity(0.3))
+     //     .blur(radius: 10)
+          .cornerRadius(16)
+)
 
-// Rectangle()
-//.fill(.clear)
-//.background(.ultraThinMaterial)
-//.overlay(Color.black.opacity(0.15))
-//.cornerRadius(16)
+// Mark: Buttons
+
+struct GlobalButtonModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: 20))
+            .foregroundColor(.white)
+            .frame(width: 50, height: 50)
+            .clipShape(Circle())
+            .glassEffect(.regular.tint(.clear).interactive())
+    }
+}
+
+// Usage: .globalButtonStyle()
+extension View {
+    func globalButtonStyle() -> some View {
+        self.modifier(GlobalButtonModifier())
+    }
+}
 
 
 //MARK: Liquid Glass Elements. NOTE: use this as a modifier, don't recreate!
 
 // .glassEffect(.regular.tint(.clear).interactive())
-
-//MARK: Buttons
-
-// When theres 1 button, it's in the center. if 2, then on either side of the screen. 3 makes 1 in the center.
 
 
 //Button(action: {
@@ -28,3 +47,18 @@
 //        .frame(width: 50, height: 50)
 //        .glassEffect(.regular.tint(.COLOR).interactive())
 //}
+
+// MARK: Extras
+
+// Card Backgrounds Without glass effect
+
+//  let GlobalCardAppearance: AnyView = AnyView(
+//      Rectangle()
+//          .fill(.clear)
+//          .background(.ultraThinMaterial)
+//          .overlay(Color.black.opacity(0.5))
+//
+        
+//  )
+
+

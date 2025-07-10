@@ -323,7 +323,7 @@ struct WelcomeScreen: View {
                     .padding(.top, 20)
 
                     HStack {
-                        Text("Please read our ")
+                        Text("Please read our")
                             .font(.system(size: 12))
                             .foregroundColor(.gray)
                         Button(action: {
@@ -334,7 +334,7 @@ struct WelcomeScreen: View {
                                 .foregroundColor(.blue)
                                 .underline()
                         }
-                        Text(" for more info.")
+                        Text("for more info.")
                             .font(.system(size: 12))
                             .foregroundColor(.gray)
                     }

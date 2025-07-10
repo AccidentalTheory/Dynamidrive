@@ -144,11 +144,7 @@ struct MasterSettings: View {
                     }
                     .padding(.vertical)
                     .background(
-                        Rectangle()
-                            .fill(.clear)
-                            .background(.ultraThinMaterial)
-                            .overlay(Color.black.opacity(0.15))
-                            .cornerRadius(16)
+                        GlobalCardAppearance
                     )
                 }
                 .padding(.horizontal)
@@ -182,11 +178,8 @@ struct MasterSettings: View {
                     }
                     .padding(.vertical)
                     .background(
-                        Rectangle()
-                            .fill(.clear)
-                            .background(.ultraThinMaterial)
-                            .overlay(Color.black.opacity(0.15))
-                            .cornerRadius(16)
+                        GlobalCardAppearance
+                            
                     )
                 }
                 .padding(.horizontal)

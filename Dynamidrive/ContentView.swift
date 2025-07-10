@@ -1038,12 +1038,7 @@ struct ContentView: View {
         
         private func baseAudioCard(geometry: GeometryProxy) -> some View {
             ZStack {
-                Rectangle()
-                    .fill(.clear)
-                    .background(.ultraThinMaterial)
-                    .overlay(Color.black.opacity(0.15))
-                    .frame(width: geometry.size.width, height: 108)
-                    .cornerRadius(16)
+                GlobalCardAppearance
                 Text(createBaseTitle)
                     .font(.system(size: 35, weight: .semibold))
                     .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading) // 65% of screen width
@@ -1060,7 +1055,7 @@ struct ContentView: View {
                         toggleBasePlayback()
                     }
                 }) {
-                    Image(systemName: createBaseAudioURL == nil ? "plus" : (createBaseIsPlaying ? "pause" : "play"))
+                    Image(systemName: createBaseAudioURL == nil ? "plus" : (createBaseIsPlaying ? "pause.fill" : "play.fill"))
                         .font(.system(size: 20))
                         .foregroundColor(.white)
                         .frame(width: 50, height: 50)
@@ -1147,12 +1142,7 @@ struct ContentView: View {
         
         private func dynamicAudioCard(geometry: GeometryProxy, index: Int) -> some View {
             ZStack {
-                Rectangle()
-                    .fill(.clear)
-                    .background(.ultraThinMaterial)
-                    .overlay(Color.black.opacity(0.15))
-                    .frame(width: geometry.size.width, height: 108)
-                    .cornerRadius(16)
+                GlobalCardAppearance
                 Text(index < createAdditionalTitles.count ? createAdditionalTitles[index] : "Audio \(index + 1)")
                     .font(.system(size: 35, weight: .semibold))
                     .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading) // 65% of screen width
@@ -1169,7 +1159,7 @@ struct ContentView: View {
                         togglePlayback(at: index)
                     }
                 }) {
-                    Image(systemName: createAdditionalZStacks[index].audioURL == nil ? "plus" : (createAdditionalZStacks[index].isPlaying ? "pause" : "play"))
+                    Image(systemName: createAdditionalZStacks[index].audioURL == nil ? "plus" : (createAdditionalZStacks[index].isPlaying ? "pause.fill" : "play.fill"))
                         .font(.system(size: 20))
                         .foregroundColor(.white)
                         .frame(width: 50, height: 50)
@@ -1709,8 +1699,7 @@ struct ContentView: View {
                         .font(.system(size: 16))
                     }
                     .padding()
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(10)
+                    .background(GlobalCardAppearance)
                     
                     // Landscape Gauge Settings
                     VStack(alignment: .leading, spacing: 10) {
@@ -1789,8 +1778,8 @@ struct ContentView: View {
                         }
                     }
                     .padding()
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(10)
+                    .background(GlobalCardAppearance)
+                   
                     
                     // General Settings
                     VStack(alignment: .leading, spacing: 10) {
@@ -1809,8 +1798,8 @@ struct ContentView: View {
                         .pickerStyle(.segmented)
                     }
                     .padding()
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(10)
+                    .background(GlobalCardAppearance)
+                    
                 }
                 .padding()
             }
@@ -2533,8 +2522,8 @@ struct ContentView: View {
                     }
                 }
                 .padding()
-                .background(Color.white.opacity(0.1))
-                .cornerRadius(16)
+                .background(GlobalCardAppearance)
+                
                 .padding()
                 
                 // Custom separator
@@ -2569,8 +2558,8 @@ struct ContentView: View {
                         .cornerRadius(10)
                 }
                 .padding()
-                .background(Color.white.opacity(0.1))
-                .cornerRadius(16)
+                .background(GlobalCardAppearance)
+              
                 .padding()
                 
                 Spacer()
@@ -2584,8 +2573,7 @@ struct ContentView: View {
                     InfoRow(number: "5", text: "Create your new soundtrack")
                 }
                 .padding()
-                .background(Color.white.opacity(0.1))
-                .cornerRadius(16)
+                .background(GlobalCardAppearance)
                 .padding(.horizontal)
                 .padding(.bottom, 90) // Increased bottom padding to position instructions higher
             }
@@ -2611,8 +2599,9 @@ struct ContentView: View {
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)
-                            .background(Color.white.opacity(0.2))
+                           
                             .clipShape(Circle())
+                            .glassEffect(.regular.tint(.clear).interactive())
                     }
                     
                     // Invisible button for layout balance
