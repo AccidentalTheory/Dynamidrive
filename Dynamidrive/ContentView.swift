@@ -2483,6 +2483,7 @@ struct ContentView: View {
                         .frame(height: 50)
                         .background(Color.white.opacity(0.2))
                         .cornerRadius(10)
+                        .glassEffect(in: .rect(cornerRadius: 10.0))
                     }
                 }
                 .padding()
@@ -2520,6 +2521,7 @@ struct ContentView: View {
                         .foregroundColor(.white)
                         .background(Color.white.opacity(0.2))
                         .cornerRadius(10)
+                        .glassEffect(in: .rect(cornerRadius: 10.0))
                 }
                 .padding()
                 .background(GlobalCardAppearance)
@@ -2560,11 +2562,7 @@ struct ContentView: View {
                             .globalButtonStyle()
                     }
                     
-                    Button(action: {}) {
-                        Color.clear
-                            .frame(width: 50, height: 50)
-                    }
-                    .disabled(true)
+                    
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 8)

@@ -9,6 +9,7 @@ import SwiftUI
           .overlay(Color.black.opacity(0.3))
      //     .blur(radius: 10)
           .cornerRadius(16)
+    //      .glassEffect(in: .rect(cornerRadius: 16.0))
 )
 
 // Mark: Buttons
@@ -19,7 +20,9 @@ struct GlobalButtonModifier: ViewModifier {
             .font(.system(size: 20))
             .foregroundColor(.white)
             .frame(width: 50, height: 50)
+            .background(Color.white.opacity(0.2))
             .clipShape(Circle())
+            
             .glassEffect(.regular.tint(.clear).interactive())
     }
 }
