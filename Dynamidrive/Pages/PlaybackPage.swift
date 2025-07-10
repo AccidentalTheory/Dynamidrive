@@ -67,20 +67,20 @@ struct PlaybackPage: View {
         GeometryReader { geometry in
             Group {
                 if isCompactHeight {
-                    // Compact view with only playback controls
+                    // Compact view
                     HStack {
                         Spacer()
                         VStack {
-                            if currentHeight > 100 && currentHeight <= 150 {
+                            if currentHeight > 100 && currentHeight <= 250 {
                             
                                 Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
                                     .font(.system(size: 35, weight: .bold))
                                     .foregroundColor(.white)
-                                    
                                     .minimumScaleFactor(0.5)
                                     .lineLimit(1)
                                     .frame(maxWidth: UIScreen.main.bounds.width * 0.8)
-                                    .padding(.top, 30)
+                                    .padding(.top, 28)
+                                
                                 playbackButtons()
                                 Spacer()
                             } else {
@@ -97,7 +97,7 @@ struct PlaybackPage: View {
                         ScrollView(.vertical, showsIndicators: false) {
                             trackList()
                                 .padding(.horizontal)
-                                .padding(.top, 140)
+                                .padding(.top, 160)
                                 .padding(.bottom, 140)
                         }
                         .ignoresSafeArea()
