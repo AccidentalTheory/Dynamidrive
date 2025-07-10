@@ -853,7 +853,7 @@ struct ContentView: View {
                 isRewindShowingCheckmark: $isRewindShowingCheckmark
             )
             .environmentObject(locationHandler)
-            .presentationDetents([.height(100), .height(200), .large], selection: .constant(.height(200)))
+            .presentationDetents([.height(100), .height(200), .large], selection: .constant(.large))
             .presentationDragIndicator(.visible)
             .presentationBackground(.clear)
         }
