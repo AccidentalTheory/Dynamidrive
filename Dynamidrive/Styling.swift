@@ -31,6 +31,25 @@ extension View {
     }
 }
 
+// Minus
+
+struct MinusButton: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: 20))
+            .foregroundColor(.white)
+            .frame(width: 50, height: 50)
+            .clipShape(Circle())
+            .glassEffect(.regular.tint(.red).interactive())
+    }
+}
+
+// Usage: .MinusButtonStyle()
+extension View {
+    func MinusButtonStyle() -> some View {
+        self.modifier(MinusButton())
+    }
+}
 
 //MARK: Liquid Glass Elements. NOTE: use this as a modifier, don't recreate!
 

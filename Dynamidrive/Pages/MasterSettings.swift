@@ -212,12 +212,7 @@ struct MasterSettings: View {
                         }
                     }) {
                         Image(systemName: "arrow.uturn.backward")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white)
-                            .frame(width: 50, height: 50)
-                            
-                            .clipShape(Circle())
-                            .glassEffect(.regular.tint(.clear).interactive())
+                            .globalButtonStyle()
                     }
                     
                     // Invisible button for layout balance

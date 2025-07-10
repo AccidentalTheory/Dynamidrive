@@ -109,10 +109,7 @@ struct MainScreen: View {
                         }
                     }) {
                         Image(systemName: "gear")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white)
-                            .frame(width: 50, height: 50)
-                            .glassEffect(.regular.tint(.clear).interactive())
+                            .globalButtonStyle()
                     }
                     Spacer()
                     Text("Dynamidrive")
@@ -135,10 +132,7 @@ struct MainScreen: View {
                         isMainScreenEditMode.toggle()
                     }) {
                         Image(systemName: isMainScreenEditMode ? "checkmark" : "minus.circle")
-                            .font(.system(size: 20))
-                            .foregroundColor(hasGrantedLocationPermission ? .white : .gray)
-                            .frame(width: 50, height: 50)
-                            .glassEffect(.regular.tint(.clear).interactive())
+                            .globalButtonStyle()
                     }
                     .disabled(!hasGrantedLocationPermission)
                     .simultaneousGesture(TapGesture().onEnded {
@@ -184,12 +178,7 @@ struct MainScreen: View {
                         }
                     } label: {
                         Image(systemName: "plus")
-                            .font(.system(size: 20))
-                            .foregroundColor(hasGrantedLocationPermission ? .white : .gray)
-                            .frame(width: 50, height: 50)
-                            .background(Color.white.opacity(0.0000001))
-                            .clipShape(Circle())
-                            .glassEffect(.regular.tint(.clear).interactive())
+                            .globalButtonStyle()
                     }
                     .disabled(!hasGrantedLocationPermission)
                     Spacer()
@@ -267,10 +256,7 @@ struct MainScreen: View {
                         }
                     }) {
                         Image(systemName: audioController.isSoundtrackPlaying && audioController.currentSoundtrackTitle == soundtrack.title ? "pause.fill" : "play.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white)
-                            .frame(width: 50, height: 50)
-                            .glassEffect(.regular.tint(.clear).interactive())
+                            .globalButtonStyle()
                     }
                 } else {
                     Button(action: {
@@ -287,10 +273,7 @@ struct MainScreen: View {
                         }
                     }) {
                         Image(systemName: "minus")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white)
-                            .frame(width: 50, height: 50)
-                            .glassEffect(.regular.tint(.red).interactive())
+                            .MinusButtonStyle()
                     }
                 }
             }

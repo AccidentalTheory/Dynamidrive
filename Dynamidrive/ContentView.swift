@@ -951,10 +951,7 @@ struct ContentView: View {
                             showCreatePage = false
                         }) {
                             Image(systemName: "arrow.uturn.backward")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white)
-                                .frame(width: 50, height: 50)
-                                .glassEffect(.regular.tint(.clear).interactive())                        }
+                            .globalButtonStyle()                        }
                         
                         Button(action: {
                             if createBaseAudioURL != nil && createAdditionalZStacks.contains(where: { $0.audioURL != nil }) {
@@ -964,10 +961,7 @@ struct ContentView: View {
                             }
                         }) {
                             Image(systemName: "arrow.forward")
-                                .font(.system(size: 24))
-                                .foregroundColor(.white)
-                                .frame(width: 80, height: 50)
-                                .glassEffect(.regular.tint(.clear).interactive())
+                                .globalButtonStyle()
                         }
                         .opacity(createBaseAudioURL != nil && createAdditionalZStacks.contains(where: { $0.audioURL != nil }) ? 1.0 : 0.5)
                         
@@ -995,10 +989,7 @@ struct ContentView: View {
                                 previousPage = .create
                             }) {
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.white)
-                                    .frame(width: 50, height: 50)
-                                    .glassEffect(.regular.tint(.clear).interactive())
+                                    .globalButtonStyle()
                             }
                             .popoverTip(createTip, arrowEdge: .bottom)
                         }
@@ -1056,14 +1047,8 @@ struct ContentView: View {
                     }
                 }) {
                     Image(systemName: createBaseAudioURL == nil ? "document.badge.plus.fill" : (createBaseIsPlaying ? "pause.fill" : "play.fill"))
-                        .font(.system(size: 20))
-                        .foregroundColor(.white)
-                        .frame(width: 50, height: 50)
+                        .globalButtonStyle()
                         .offset(x: createBaseAudioURL == nil ? 1.5 : 0)
-                        
-                  
-                        .clipShape(Circle())
-                        .glassEffect(.regular.tint(.clear).interactive())
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.trailing, 20)
@@ -1162,13 +1147,8 @@ struct ContentView: View {
                     }
                 }) {
                     Image(systemName: createAdditionalZStacks[index].audioURL == nil ? "document.badge.plus.fill" : (createAdditionalZStacks[index].isPlaying ? "pause.fill" : "play.fill"))
-                        .font(.system(size: 20))
-                        .foregroundColor(.white)
-                        .frame(width: 50, height: 50)
+                        .globalButtonStyle()
                         .offset(x: createBaseAudioURL == nil ? 1.5 : 0)
-                       
-                        .clipShape(Circle())
-                        .glassEffect(.regular.tint(.clear).interactive())
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.trailing, 20)
@@ -1249,10 +1229,7 @@ struct ContentView: View {
                     }
                 }) {
                     Image(systemName: "plus")
-                        .font(.system(size: 20))
-                        .foregroundColor(.white)
-                        .frame(width: 50, height: 50)
-                        .glassEffect(.regular.tint(.clear).interactive())
+                        .globalButtonStyle()
                 }
                 
             }
@@ -2599,12 +2576,7 @@ struct ContentView: View {
                         }
                     }) {
                         Image(systemName: "arrow.uturn.backward")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white)
-                            .frame(width: 50, height: 50)
-                           
-                            .clipShape(Circle())
-                            .glassEffect(.regular.tint(.clear).interactive())
+                            .globalButtonStyle()
                     }
                     
                     // Invisible button for layout balance

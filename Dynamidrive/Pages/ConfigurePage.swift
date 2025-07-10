@@ -66,12 +66,7 @@ struct ConfigurePage: View {
                         handleDoneAction()
                     }) {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 24))
-                            .foregroundColor(.white)
-                            .frame(width: 80, height: 50)
-                      
-                            .clipShape(Capsule())
-                            .glassEffect(.regular.tint(.clear).interactive())
+                            .globalButtonStyle()
                     }
                     
                     Button(action: {
