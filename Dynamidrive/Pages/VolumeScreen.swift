@@ -134,7 +134,7 @@ struct VolumeScreen: View {
         Button(action: {
             showVolumePage = false
         }) {
-            Image(systemName: "chevron.left")
+            Image(systemName: "arrow.uturn.backward")
                 .font(.system(size: 20))
                 .foregroundColor(.white)
                 .frame(width: 50, height: 50)

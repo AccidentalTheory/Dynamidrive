@@ -53,7 +53,7 @@ struct ConfigurePage: View {
                         showCreatePage = true
                         print("Back button pressed: showConfigurePage = false, showCreatePage = true")
                     }) {
-                        Image(systemName: "chevron.left")
+                        Image(systemName: "arrow.uturn.backward")
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)
@@ -65,7 +65,7 @@ struct ConfigurePage: View {
                     Button(action: {
                         handleDoneAction()
                     }) {
-                        Text("Done")
+                        Image(systemName: "checkmark")
                             .font(.system(size: 24))
                             .foregroundColor(.white)
                             .frame(width: 80, height: 50)

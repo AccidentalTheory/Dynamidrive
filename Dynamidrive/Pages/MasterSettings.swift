@@ -211,7 +211,7 @@ struct MasterSettings: View {
                             currentPage = .main
                         }
                     }) {
-                        Image(systemName: "chevron.left")
+                        Image(systemName: "arrow.uturn.backward")
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)

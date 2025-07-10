@@ -54,7 +54,7 @@ struct CreatePage: View {
                         Button(action: {
                             showCreatePage = false
                         }) {
-                            Image(systemName: "chevron.left")
+                            Image(systemName: "arrow.uturn.backward")
                                 .font(.system(size: 20))
                                 .foregroundColor(.white)
                                 .frame(width: 50, height: 50)
@@ -119,7 +119,7 @@ struct CreatePage: View {
                         toggleBasePlayback()
                     }
                 }) {
-                    Image(systemName: createBaseAudioURL == nil ? "plus" : (createBaseIsPlaying ? "pause" : "play"))
+                    Image(systemName: createBaseAudioURL == nil ? "folder.fill.badge.plus" : (createBaseIsPlaying ? "pause.fill" : "play.fill"))
                         .font(.system(size: 20))
                         .foregroundColor(.white)
                         .frame(width: 50, height: 50)
@@ -160,7 +160,7 @@ struct CreatePage: View {
                             togglePlayback(at: index)
                         }
                     }) {
-                        Image(systemName: createAdditionalZStacks[index].audioURL == nil ? "plus" : (createAdditionalZStacks[index].isPlaying ? "pause" : "play"))
+                        Image(systemName: createAdditionalZStacks[index].audioURL == nil ? "folder.fill.badge.plus" : (createAdditionalZStacks[index].isPlaying ? "pause.fill" : "play.fill"))
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)

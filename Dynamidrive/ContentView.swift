@@ -950,7 +950,7 @@ struct ContentView: View {
                             pauseAllAudio()
                             showCreatePage = false
                         }) {
-                            Image(systemName: "chevron.left")
+                            Image(systemName: "arrow.uturn.backward")
                                 .font(.system(size: 20))
                                 .foregroundColor(.white)
                                 .frame(width: 50, height: 50)
@@ -963,7 +963,7 @@ struct ContentView: View {
                                 UINotificationFeedbackGenerator().notificationOccurred(.error)
                             }
                         }) {
-                            Text("Next")
+                            Image(systemName: "arrow.forward")
                                 .font(.system(size: 24))
                                 .foregroundColor(.white)
                                 .frame(width: 80, height: 50)
@@ -1055,10 +1055,12 @@ struct ContentView: View {
                         toggleBasePlayback()
                     }
                 }) {
-                    Image(systemName: createBaseAudioURL == nil ? "plus" : (createBaseIsPlaying ? "pause.fill" : "play.fill"))
+                    Image(systemName: createBaseAudioURL == nil ? "document.badge.plus.fill" : (createBaseIsPlaying ? "pause.fill" : "play.fill"))
                         .font(.system(size: 20))
                         .foregroundColor(.white)
                         .frame(width: 50, height: 50)
+                        .offset(x: createBaseAudioURL == nil ? 1.5 : 0)
+                        
                   
                         .clipShape(Circle())
                         .glassEffect(.regular.tint(.clear).interactive())
@@ -1159,10 +1161,11 @@ struct ContentView: View {
                         togglePlayback(at: index)
                     }
                 }) {
-                    Image(systemName: createAdditionalZStacks[index].audioURL == nil ? "plus" : (createAdditionalZStacks[index].isPlaying ? "pause.fill" : "play.fill"))
+                    Image(systemName: createAdditionalZStacks[index].audioURL == nil ? "document.badge.plus.fill" : (createAdditionalZStacks[index].isPlaying ? "pause.fill" : "play.fill"))
                         .font(.system(size: 20))
                         .foregroundColor(.white)
                         .frame(width: 50, height: 50)
+                        .offset(x: createBaseAudioURL == nil ? 1.5 : 0)
                        
                         .clipShape(Circle())
                         .glassEffect(.regular.tint(.clear).interactive())
@@ -1318,7 +1321,7 @@ struct ContentView: View {
                     showEditPage = false
                 }
             }) {
-                Image(systemName: "chevron.left")
+                Image(systemName: "arrow.uturn.backward")
                     .font(.system(size: 20))
                     .foregroundColor(.white)
                     .frame(width: 50, height: 50)
@@ -1575,7 +1578,7 @@ struct ContentView: View {
                                 showSpeedDetailPage = false
                             }
                         }) {
-                            Image(systemName: "chevron.left")
+                            Image(systemName: "arrow.uturn.backward")
                                 .font(.system(size: 20))
                                 .foregroundColor(.white)
                                 .frame(width: 50, height: 50)
@@ -1820,7 +1823,7 @@ struct ContentView: View {
                             showSettingsPage = false
                         }
                     }) {
-                        Image(systemName: "chevron.left")
+                        Image(systemName: "arrow.uturn.backward")
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)
@@ -2469,7 +2472,7 @@ struct ContentView: View {
                             currentPage = .create
                         }
                     }) {
-                        Image(systemName: "chevron.left")
+                        Image(systemName: "arrow.uturn.backward")
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)
@@ -2595,7 +2598,7 @@ struct ContentView: View {
                             currentPage = .create
                         }
                     }) {
-                        Image(systemName: "chevron.left")
+                        Image(systemName: "arrow.uturn.backward")
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)
