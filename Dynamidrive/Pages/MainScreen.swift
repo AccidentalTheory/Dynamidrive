@@ -30,6 +30,9 @@ struct MainScreen: View {
     @State private var showWelcomeScreen = false
     @State private var showLocationDeniedView = false
     
+    // Add state to track if content is scrolled
+    @State private var isScrolled = false
+    
     var cardAnimationDelay: Double = 0
     
     var resetCreatePage: () -> Void
@@ -75,8 +78,20 @@ struct MainScreen: View {
                         Spacer()
                         Spacer()
                     } else {
-                        InViewScrollEffect(triggerArea: 1, blur: 10, scale: 0.66) {
+                        // ScrollView with scroll detection
+                        ScrollViewReader { scrollProxy in
                             ScrollView(.vertical, showsIndicators: false) {
+                                GeometryReader { geo in
+                                    Color.clear
+                                        .frame(height: 0)
+                                        .onChange(of: geo.frame(in: .named("scroll")).minY) { value in
+                                            // If scrolled down, set isScrolled to true
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                isScrolled = value < -8 // adjust threshold as needed
+                                            }
+                                        }
+                                }
+                                .frame(height: 0)
                                 VStack(spacing: 14) {
                                     Color.clear.frame(height: UIScreen.main.bounds.height * 0.08)
                                     ForEach(soundtracks.indices, id: \.self) { index in
@@ -92,6 +107,7 @@ struct MainScreen: View {
                                 .animation(.easeInOut(duration: 0.3), value: soundtracks)
                                 .padding(.bottom, 100)
                             }
+                            .coordinateSpace(name: "scroll")
                             .frame(maxWidth: .infinity)
                         }
                     }
@@ -99,46 +115,74 @@ struct MainScreen: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
+            // Gradient behind header
+            VStack {
+                LinearGradient(
+                    gradient: Gradient(stops: [
+                        .init(color: Color.black.opacity(0.6), location: 0.0),
+                        .init(color: Color.black.opacity(0.6), location: 0.35),
+                        .init(color: Color.clear, location: 1.0)
+                    ]),
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 220)
+                .opacity(isScrolled ? 1 : 0)
+                .animation(.easeInOut(duration: 0.2), value: isScrolled)
+                Spacer()
+            }
+            .allowsHitTesting(false)
+            .ignoresSafeArea(edges: .top)
+
             VStack {
                 HStack {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.5)) {
-                            currentPage = .masterSettings
+                    if animateCards {
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.5)) {
+                                currentPage = .masterSettings
+                            }
+                        }) {
+                            Image(systemName: "gear")
+                                .globalButtonStyle()
                         }
-                    }) {
-                        Image(systemName: "gear")
-                            .globalButtonStyle()
+                        .glassEffectTransition(.materialize)
                     }
                     Spacer()
-                    Text("Dynamidrive")
-                        .font(.ppNeueMachina(size: 25))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [
-                                    .white,
-                                    Color(red: 1, green: 1, blue: 1, opacity: 0.392)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
+                    if animateCards {
+                        Text("Dynamidrive")
+                            .font(.ppNeueMachina(size: 25))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [
+                                        .white,
+                                        Color(red: 1, green: 1, blue: 1, opacity: 0.392)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
                             )
-                        )
-                        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                    Spacer()
-                    Button(action: {
-                        let impact = UIImpactFeedbackGenerator(style: .medium)
-                        impact.impactOccurred()
-                        isMainScreenEditMode.toggle()
-                    }) {
-                        Image(systemName: isMainScreenEditMode ? "checkmark" : "minus.circle")
-                            .globalButtonStyle()
+                            .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                            .glassEffectTransition(.materialize)
                     }
-                    .disabled(!hasGrantedLocationPermission)
-                    .simultaneousGesture(TapGesture().onEnded {
-                        if !hasGrantedLocationPermission {
-                            let generator = UINotificationFeedbackGenerator()
-                            generator.notificationOccurred(.error)
+                    Spacer()
+                    if animateCards {
+                        Button(action: {
+                            let impact = UIImpactFeedbackGenerator(style: .medium)
+                            impact.impactOccurred()
+                            isMainScreenEditMode.toggle()
+                        }) {
+                            Image(systemName: isMainScreenEditMode ? "checkmark" : "minus.circle")
+                                .globalButtonStyle()
                         }
-                    })
+                        .disabled(!hasGrantedLocationPermission)
+                        .simultaneousGesture(TapGesture().onEnded {
+                            if !hasGrantedLocationPermission {
+                                let generator = UINotificationFeedbackGenerator()
+                                generator.notificationOccurred(.error)
+                            }
+                        })
+                        .glassEffectTransition(.materialize)
+                    }
                 }
                 .padding(.horizontal)
                 .padding(.top, UIScreen.main.bounds.height * 0.01)
@@ -149,35 +193,38 @@ struct MainScreen: View {
                 Spacer()
                 HStack {
                     Spacer()
-                    Menu {
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.5)) {
-                                showImportPage = true
-                                showCreatePage = false
-                                currentPage = .create
+                    if animateCards {
+                        Menu {
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.5)) {
+                                    showImportPage = true
+                                    showCreatePage = false
+                                    currentPage = .create
+                                }
+                            }) {
+                                Label("Import Existing (Coming Soon)", systemImage: "square.and.arrow.down")
+                                    .foregroundColor(.gray)
                             }
-                        }) {
-                            Label("Import Existing (Coming Soon)", systemImage: "square.and.arrow.down")
-                                .foregroundColor(.gray)
-                        }
-                        .disabled(true)
-                        
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.5)) {
-                                resetCreatePage()
-                                showCreatePage = true
-                                showImportPage = false
-                                importedSoundtrackURL = nil
-                                currentPage = .create
+                            .disabled(true)
+                            
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.5)) {
+                                    resetCreatePage()
+                                    showCreatePage = true
+                                    showImportPage = false
+                                    importedSoundtrackURL = nil
+                                    currentPage = .create
+                                }
+                            }) {
+                                Label("Create New...", systemImage: "plus")
                             }
-                        }) {
-                            Label("Create New...", systemImage: "plus")
+                        } label: {
+                            Image(systemName: "plus")
+                                .globalButtonStyle()
                         }
-                    } label: {
-                        Image(systemName: "plus")
-                            .globalButtonStyle()
+                        .disabled(!hasGrantedLocationPermission)
+                        .glassEffectTransition(.materialize)
                     }
-                    .disabled(!hasGrantedLocationPermission)
                     Spacer()
                 }
                 .padding(.bottom, 12)
@@ -294,7 +341,7 @@ private struct FlyInCardEffect: ViewModifier {
             .offset(y: isVisible ? 0 : 60)
             .blur(radius: isVisible ? 0 : 24)
             .animation(
-                isVisible ? .easeOut(duration: 0.6).delay(delay) : .none,
+                isVisible ? .interpolatingSpring(stiffness: 80, damping: 10).delay(delay) : .none,
                 value: isVisible
             )
             .allowsHitTesting(isVisible)

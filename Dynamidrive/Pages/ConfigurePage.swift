@@ -54,12 +54,7 @@ struct ConfigurePage: View {
                         print("Back button pressed: showConfigurePage = false, showCreatePage = true")
                     }) {
                         Image(systemName: "arrow.uturn.backward")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white)
-                            .frame(width: 50, height: 50)
-                            
-                            .clipShape(Circle())
-                            .glassEffect(.regular.tint(.clear).interactive())
+                            .globalButtonStyle()
                     }
                     
                     Button(action: {
@@ -77,12 +72,7 @@ struct ConfigurePage: View {
                         }
                     }) {
                         Image(systemName: "speaker.wave.3.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white)
-                            .frame(width: 50, height: 50)
-                            
-                            .clipShape(Circle())
-                            .glassEffect(.regular.tint(.clear).interactive())
+                            .globalButtonStyle()
                     }
                 }
                 .padding(.horizontal)
@@ -219,7 +209,7 @@ struct ConfigurePage: View {
                 .foregroundColor(.white)
             Spacer()
         }
-        TextField("New Soundtrack", text: $createSoundtrackTitle)
+        TextField("Soundtrack Title", text: $createSoundtrackTitle)
             .font(.system(size: 30, weight: .bold))
             .foregroundColor(.white)
             .multilineTextAlignment(.center)
