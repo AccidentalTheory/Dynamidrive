@@ -276,7 +276,7 @@ struct MainScreen: View {
                             
                             if locationTrackingEnabled {
                                 let miles = locationHandler.soundtrackDistances[soundtrack.id] ?? 0.0
-                                Text("Distance Played: \(Int(ceil(miles))) mi")
+                                Text("Distance Played: \(Int(round(miles))) mi")
                                     .foregroundColor(.gray)
                                     .font(.system(size: 16, weight: .medium))
                             }

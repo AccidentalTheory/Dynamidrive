@@ -122,18 +122,8 @@ struct CreatePage: View {
             .zIndex(2)
         }
         .sheet(isPresented: $showInfoPage) {
-            // Provide your infoPage view here
-            EmptyView()
+            infoPage()
         }
-    }
-
-    private var baseAudioStack: some View {
-        GeometryReader { geometry in
-            baseAudioCard(geometry: geometry)
-                .offset(x: createBaseOffset)
-                // .gesture(baseAudioGesture) // Add if you want swipe-to-remove
-        }
-        .frame(height: 108)
         .alert(isPresented: $showLengthMismatchAlert) {
             Alert(
                 title: Text("Length Mismatch"),
@@ -141,6 +131,58 @@ struct CreatePage: View {
                 dismissButton: .default(Text("OK"))
             )
         }
+    }
+
+    // MARK: Info Page
+    private func infoPage() -> some View {
+        Color(red: 26/255, green: 20/255, blue: 26/255)
+            .edgesIgnoringSafeArea(.all)
+            .overlay(
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("For best results...")
+                        .font(.system(size: 35, weight: .bold))
+                        .foregroundColor(.white)
+                    Text("All tracks must be the same length")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.white)
+                    Text("All uploaded tracks must be the same length as the base track. This is so the audio files loop cleanly.")
+                        .font(.system(size: 17))
+                        .foregroundColor(.white)
+                    Text("Use different instruments")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.white)
+                    HStack {
+                        Text("I recommend using this tool to separate audio tracks. It uses AI to separate the voice, drums, bass, etc. (Please note that the tool isn't owned by me and I don't have any authority over its use.)")
+                            .font(.system(size: 17))
+                            .foregroundColor(.white)
+                        Spacer()
+                        Button(action: {
+                            if let url = URL(string: "https://uvronline.app/ai?hp&px30ac9k6taj1r&lev3n") {
+                                UIApplication.shared.open(url)
+                            }
+                        }) {
+                            Image(systemName: "link")
+                                .font(.system(size: 17))
+                                .foregroundColor(.white)
+                                .frame(width: 30, height: 30)
+                                .background(Color.white.opacity(0.2))
+                                .clipShape(Circle())
+                        }
+                    }
+                    Spacer()
+                }
+                .padding()
+            )
+    }
+
+    // MARK: Base Audio Stack
+    private var baseAudioStack: some View {
+        GeometryReader { geometry in
+            baseAudioCard(geometry: geometry)
+                .offset(x: createBaseOffset)
+                .gesture(baseAudioGesture)
+        }
+        .frame(height: 108)
     }
 
     private func baseAudioCard(geometry: GeometryProxy) -> some View {
@@ -168,16 +210,77 @@ struct CreatePage: View {
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.trailing, 20)
-            // .sheet(isPresented: $createBaseShowingFilePicker, content: baseAudioPicker) // Add picker if needed
+            .sheet(isPresented: $createBaseShowingFilePicker, content: baseAudioPicker)
         }
     }
 
+    private var baseAudioGesture: some Gesture {
+        DragGesture()
+            .onChanged { value in
+                createBaseOffset = value.translation.width
+            }
+            .onEnded { value in
+                if value.translation.width < -50 {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        createBaseOffset = -UIScreen.main.bounds.width
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        if let url = createBaseAudioURL {
+                            removeAudioFile(at: url)
+                        }
+                        if createBaseIsPlaying, let player = createBasePlayer {
+                            player.pause()
+                            createBaseIsPlaying = false
+                        }
+                        createBaseAudioURL = nil
+                        createBasePlayer = nil
+                        createBaseOffset = 0
+                        createBaseVolume = 0.0
+                        createBaseTitle = "Base"
+                        if createAdditionalZStacks.isEmpty {
+                            createReferenceLength = nil
+                        }
+                    }
+                } else {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        createBaseOffset = 0
+                    }
+                }
+            }
+    }
+
+    private func baseAudioPicker() -> some View {
+        DocumentPicker { url in
+            if let storedURL = storeAudioFile(url, name: "Soundtrack\(soundtracks.count + 1)Base_\(UUID().uuidString)") {
+                if let tempPlayer = try? AVAudioPlayer(contentsOf: storedURL) {
+                    let duration = tempPlayer.duration
+                    if createReferenceLength == nil || createAdditionalZStacks.isEmpty {
+                        createReferenceLength = duration
+                        createBaseAudioURL = storedURL
+                        createBasePlayer = tempPlayer
+                        createBasePlayer?.volume = mapVolume(createBaseVolume)
+                        createBasePlayer?.prepareToPlay()
+                    } else if abs(duration - createReferenceLength!) < 0.1 {
+                        createBaseAudioURL = storedURL
+                        createBasePlayer = tempPlayer
+                        createBasePlayer?.volume = mapVolume(createBaseVolume)
+                        createBasePlayer?.prepareToPlay()
+                    } else {
+                        removeAudioFile(at: storedURL)
+                        showLengthMismatchAlert = true
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: Dynamic Audio Stacks
     private var dynamicAudioStacks: some View {
         ForEach(createAdditionalZStacks.indices, id: \ .self) { index in
             GeometryReader { geometry in
                 dynamicAudioCard(geometry: geometry, index: index)
                     .offset(x: createAdditionalZStacks[index].offset)
-                    // .gesture(dynamicAudioGesture(index: index)) // Add if you want swipe-to-remove
+                    .gesture(dynamicAudioGesture(index: index))
             }
             .frame(height: 108)
         }
@@ -208,10 +311,70 @@ struct CreatePage: View {
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.trailing, 20)
-            // .sheet(isPresented: Binding(get: { createAdditionalZStacks[index].showingFilePicker }, set: { newValue in createAdditionalZStacks[index].showingFilePicker = newValue })) { dynamicAudioPicker(index: index) }
+            .sheet(isPresented: Binding(get: { createAdditionalZStacks[index].showingFilePicker }, set: { newValue in createAdditionalZStacks[index].showingFilePicker = newValue })) {
+                dynamicAudioPicker(index: index)
+            }
         }
     }
 
+    private func dynamicAudioGesture(index: Int) -> some Gesture {
+        DragGesture()
+            .onChanged { value in
+                createAdditionalZStacks[index].offset = value.translation.width
+            }
+            .onEnded { value in
+                if value.translation.width < -50 {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        createAdditionalZStacks[index].offset = -UIScreen.main.bounds.width
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        if let url = createAdditionalZStacks[index].audioURL {
+                            removeAudioFile(at: url)
+                        }
+                        if createAdditionalZStacks[index].isPlaying, let player = createAdditionalZStacks[index].player {
+                            player.pause()
+                            createAdditionalZStacks[index].isPlaying = false
+                        }
+                        createAdditionalZStacks.remove(at: index)
+                        if index < createAdditionalTitles.count {
+                            createAdditionalTitles.remove(at: index)
+                            createAdditionalAlwaysPlaying.remove(at: index)
+                        }
+                        if createAdditionalZStacks.isEmpty && createBaseAudioURL == nil {
+                            createReferenceLength = nil
+                        }
+                    }
+                } else {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        createAdditionalZStacks[index].offset = 0
+                    }
+                }
+            }
+    }
+
+    private func dynamicAudioPicker(index: Int) -> some View {
+        DocumentPicker { url in
+            if let storedURL = storeAudioFile(url, name: "Soundtrack\(soundtracks.count + 1)Audio\(index + 1)_\(UUID().uuidString)") {
+                if let tempPlayer = try? AVAudioPlayer(contentsOf: storedURL) {
+                    let duration = tempPlayer.duration
+                    if createReferenceLength == nil || abs(duration - createReferenceLength!) < 0.1 {
+                        createAdditionalZStacks[index].audioURL = storedURL
+                        createAdditionalZStacks[index].player = tempPlayer
+                        createAdditionalZStacks[index].player?.volume = mapVolume(createAdditionalZStacks[index].volume)
+                        createAdditionalZStacks[index].player?.prepareToPlay()
+                        if createReferenceLength == nil {
+                            createReferenceLength = duration
+                        }
+                    } else {
+                        removeAudioFile(at: storedURL)
+                        showLengthMismatchAlert = true
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: Add Audio Button
     private var addAudioButton: some View {
         HStack(spacing: 20) {
             Button(action: {
@@ -229,6 +392,7 @@ struct CreatePage: View {
         .padding(.top, 10)
     }
 
+    // MARK: Audio Helpers
     private func pauseAllAudio() {
         if createBaseIsPlaying, let player = createBasePlayer {
             player.pause()
@@ -240,7 +404,6 @@ struct CreatePage: View {
                 createAdditionalZStacks[index].isPlaying = false
             }
         }
-        // stopPreviewTrackingTimer() // Add if you want preview timer logic
     }
 
     private func toggleBasePlayback() {
@@ -248,12 +411,9 @@ struct CreatePage: View {
         if createBaseIsPlaying {
             player.pause()
             createBaseIsPlaying = false
-            // Add preview timer logic if needed
         } else {
-            // Add logic to stop soundtrack playback if needed
             player.play()
             createBaseIsPlaying = true
-            // Add preview timer logic if needed
         }
     }
 
@@ -262,12 +422,45 @@ struct CreatePage: View {
         if createAdditionalZStacks[index].isPlaying {
             player.pause()
             createAdditionalZStacks[index].isPlaying = false
-            // Add preview timer logic if needed
         } else {
-            // Add logic to stop soundtrack playback if needed
             player.play()
             createAdditionalZStacks[index].isPlaying = true
-            // Add preview timer logic if needed
         }
+    }
+
+    private func storeAudioFile(_ url: URL, name: String) -> URL? {
+        let fileManager = FileManager.default
+        guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            print("Failed to access documents directory")
+            return nil
+        }
+        let destinationURL = documentsDirectory.appendingPathComponent("\(name).mp3")
+        do {
+            if fileManager.fileExists(atPath: destinationURL.path) {
+                try fileManager.removeItem(at: destinationURL)
+            }
+            try fileManager.copyItem(at: url, to: destinationURL)
+            return destinationURL
+        } catch {
+            print("Error storing audio file: \(error)")
+            return nil
+        }
+    }
+
+    private func removeAudioFile(at url: URL) {
+        let fileManager = FileManager.default
+        do {
+            if fileManager.fileExists(atPath: url.path) {
+                try fileManager.removeItem(at: url)
+                print("Removed audio file at: \(url.path)")
+            }
+        } catch {
+            print("Error removing audio file: \(error)")
+        }
+    }
+
+    private func mapVolume(_ percentage: Float) -> Float {
+        let mapped = (percentage + 100) / 100
+        return max(0.0, min(2.0, mapped))
     }
 } 
