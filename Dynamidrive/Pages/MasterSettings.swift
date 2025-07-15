@@ -54,6 +54,8 @@ struct MasterSettings: View {
         }
     }
     
+    @AppStorage("showMutedLocationIndicator") private var showMutedLocationIndicator: Bool = false
+    
     enum MapStyle: String {
         case standard
         case satellite
@@ -102,12 +104,18 @@ struct MasterSettings: View {
                                 Picker("Map Style", selection: $mapStyle) {
                                     Text("Default").tag(MapStyle.standard)
                                     Text("Satellite").tag(MapStyle.satellite)
-                                    Text("Muted").tag(MapStyle.muted) 
+                                    Text("Monotone").tag(MapStyle.muted)
                                 }
                                 .pickerStyle(MenuPickerStyle())
                                 .accentColor(.white)
                             }
                             .padding(.horizontal)
+                            // Show toggle only if Muted is selected
+                            if mapStyle == .muted {
+                                Toggle("Show Location Indicator", isOn: $showMutedLocationIndicator)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal)
+                            }
                         } else {
                             VStack(spacing: 16) {
                                 ColorPicker("Top Color", selection: Binding(

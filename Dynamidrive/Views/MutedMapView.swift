@@ -74,6 +74,8 @@ struct MutedMapViewContainer: View {
     @Binding var currentPage: AppPage
     @State private var animatePulse = false
     @State private var animateBlackCircle = false
+    @AppStorage("showMutedLocationIndicator") private var showMutedLocationIndicator: Bool = false
+    @State private var showActivityIndicator: Bool = true
     var body: some View {
         ZStack {
             MutedMapView(styleURL: styleURL, coordinate: coordinate)
@@ -82,42 +84,53 @@ struct MutedMapViewContainer: View {
                 .ignoresSafeArea()
                 .scaleEffect(1.5)
             ZStack {
-                // Animated pulsing circle
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 100, height: 100)
-                    .scaleEffect(animatePulse ? 1.0 : 0.0)
-                    .opacity(animatePulse ? 0.0 : 0.4)
-                    .animation(Animation.easeOut(duration: 3).repeatForever(autoreverses: false), value: animatePulse)
-                // White circle only appears when animation starts
-                if animatePulse {
+                // Animated pulsing circle (only if toggle is on)
+                if showMutedLocationIndicator {
                     Circle()
                         .fill(Color.white)
-                        .frame(width: 30, height: 30)
-                        .opacity(1.0)
-                }
-                // Animated black circle with activity indicator
-                ZStack {
-                    Circle()
-                        .fill(Color.black)
-                        .frame(width: 30, height: 30)
-                        .scaleEffect(animateBlackCircle ? (20.0/30.0) : 1.0)
-                        .animation(Animation.easeOut(duration: 0.5), value: animateBlackCircle)
-                        .opacity(1.0)
-                    ActivityIndicator(isAnimating: .constant(!animatePulse))
+                        .frame(width: 100, height: 100)
+                        .scaleEffect(animatePulse ? 1.0 : 0.0)
+                        .opacity(animatePulse ? 0.0 : 0.4)
+                        .animation(Animation.easeOut(duration: 3).repeatForever(autoreverses: false), value: animatePulse)
+                    if animatePulse {
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: 30, height: 30)
+                            .opacity(1.0)
+                    }
+                    ZStack {
+                        Circle()
+                            .fill(Color.black)
+                            .frame(width: 30, height: 30)
+                            .scaleEffect(animateBlackCircle ? (20.0/30.0) : 1.0)
+                            .animation(Animation.easeOut(duration: 0.5), value: animateBlackCircle)
+                            .opacity(1.0)
+                        ActivityIndicator(isAnimating: .constant(!animatePulse))
+                            .frame(width: 18, height: 18)
+                            .opacity((!animatePulse && showMutedLocationIndicator && currentPage != .speedDetail && showActivityIndicator) ? 1.0 : 0.0)
+                            .animation(.easeOut(duration: 0.5), value: animatePulse)
+                    }
+                } else {
+                    // Only show the activity indicator centered when toggle is off (no black circle)
+                    ActivityIndicator(isAnimating: .constant(true))
                         .frame(width: 18, height: 18)
-                        .opacity(animatePulse ? 0.0 : 1.0)
-                        .animation(.easeOut(duration: 0.5), value: animatePulse)
+                        .opacity((!showMutedLocationIndicator && currentPage != .speedDetail && showActivityIndicator) ? 1.0 : 0.0)
+                        .animation(.easeOut(duration: 0.5), value: showMutedLocationIndicator)
                 }
             }
-            .opacity(currentPage == .speedDetail ? 0.0 : 1.0)
+            .opacity(currentPage != .speedDetail ? 1.0 : 0.0)
+            .animation(.easeOut(duration: 0.5), value: showMutedLocationIndicator)
         }
         .onAppear {
             animatePulse = false
             animateBlackCircle = false
+            showActivityIndicator = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 15.0) {
                 animatePulse = true
                 animateBlackCircle = true
+                withAnimation(.easeOut(duration: 0.5)) {
+                    showActivityIndicator = false
+                }
             }
         }
     }
