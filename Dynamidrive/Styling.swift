@@ -5,11 +5,11 @@ import SwiftUI
   let GlobalCardAppearance: AnyView = AnyView(
       Rectangle()
           .fill(.clear)
-          .background(.ultraThinMaterial)
-          .overlay(Color.black.opacity(0.3))
+      //    .background(.ultraThinMaterial)
+       //   .overlay(Color.black.opacity(0.3))
      //     .blur(radius: 10)
           .cornerRadius(16)
-    //      .glassEffect(in: .rect(cornerRadius: 16.0))
+          .glassEffect(in: .rect(cornerRadius: 16.0))
 )
 
 // Mark: Buttons
@@ -51,6 +51,26 @@ struct MinusButton: ViewModifier {
 extension View {
     func MinusButtonStyle() -> some View {
         self.modifier(MinusButton())
+    }
+}
+
+// MainScreen Soundtrack Buttons (no Glass on Glass)
+
+struct CardButton: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: 20))
+            .foregroundColor(.white)
+            .frame(width: 50, height: 50)
+            .clipShape(Circle())
+         //   .glassEffect(.regular.tint(.red).interactive())
+    }
+}
+
+// Usage: .MinusButtonStyle()
+extension View {
+    func CardButtonStyle() -> some View {
+        self.modifier(CardButton())
     }
 }
 

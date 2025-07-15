@@ -302,7 +302,7 @@ struct MainScreen: View {
                         }
                     }) {
                         Image(systemName: isCurrentAndPlaying ? "pause.fill" : "play.fill")
-                            .globalButtonStyle()
+                            .CardButtonStyle()
                     }
                 } else {
                     Button(action: {
