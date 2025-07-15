@@ -215,6 +215,7 @@ struct PlaybackPage: View {
     private func trackList() -> some View {
         let displayTracks = pendingSoundtrack?.tracks ?? audioController.currentTracks
         let displayedTitle = pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle
+        let isCurrentSoundtrack = audioController.currentSoundtrackTitle == displayedTitle && audioController.isSoundtrackPlaying
         VStack(spacing: 20) {
             if !displayTracks.isEmpty && displayTracks[0].audioFileName.contains("Base") {
                 GeometryReader { geometry in
@@ -276,14 +277,14 @@ struct PlaybackPage: View {
                                                 .font(.system(size: 16, weight: .bold))
                                                 .foregroundColor(.white.opacity(0.5))
                                                 .scaleEffect(minSpeedScale[index] ?? 1.0)
-                                            Gauge(value: Double(audioController.calculateVolumeForTrack(at: index, speed: locationHandler.speedMPH)),
+                                            Gauge(value: isCurrentSoundtrack ? Double(audioController.calculateVolumeForTrack(at: index, speed: locationHandler.speedMPH)) : 0.0,
                                                   in: 0...Double(mapVolume(displayTracks[index].maximumVolume))) {
                                                 EmptyView()
                                             }
                                             .gaugeStyle(.linearCapacity)
                                             .tint(.gray)
                                             .frame(width: geometry.size.width * 0.69, height: 10)
-                                            .animation(.easeInOut(duration: 1.0), value: locationHandler.speedMPH)
+                                            .animation(.easeInOut(duration: 1.0), value: isCurrentSoundtrack ? locationHandler.speedMPH : 0.0)
                                             Text("\(displayTracks[index].maximumSpeed)")
                                                 .font(.system(size: 16, weight: .bold))
                                                 .foregroundColor(.white.opacity(0.5))
@@ -346,13 +347,15 @@ struct PlaybackPage: View {
                         if audioController.isSoundtrackPlaying {
                             audioController.toggleSoundtrackPlayback()
                         }
-                        audioController.setCurrentSoundtrack(tracks: pending.tracks, players: pending.players, title: pending.title)
+                        audioController.setCurrentSoundtrack(id: pending.id, tracks: pending.tracks, players: pending.players, title: pending.title)
                         audioController.toggleSoundtrackPlayback()
                     } else {
                         audioController.toggleSoundtrackPlayback()
                     }
                 }) {
-                    Image(systemName: audioController.isSoundtrackPlaying ? "pause.fill" : "play.fill")
+                    let displayedTitle = pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle
+                    let isCurrentAndPlaying = audioController.isSoundtrackPlaying && audioController.currentSoundtrackTitle == displayedTitle
+                    Image(systemName: isCurrentAndPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 30))
                         .foregroundColor(.white)
                         .frame(width: 70, height: 70)

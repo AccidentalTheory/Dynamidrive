@@ -24,6 +24,7 @@ class AudioController: ObservableObject {
     public var currentTracks: [AudioController.SoundtrackData] = []
     private var syncTimer: Timer?
     private var locationHandler: LocationHandler
+    public var currentSoundtrackID: UUID? = nil // <-- Add this property
     
     struct SoundtrackData: Codable {
         let audioFileName: String
@@ -97,28 +98,27 @@ class AudioController: ObservableObject {
         let nowPlayingInfoCenter = MPNowPlayingInfoCenter.default()
         var nowPlayingInfo = [String: Any]()
         
-        if isSoundtrackPlaying {
-            nowPlayingInfo[MPMediaItemPropertyTitle] = currentSoundtrackTitle
-            nowPlayingInfo[MPMediaItemPropertyArtist] = "Speed: \(Int(locationHandler.speedMPH.rounded())) mph"
-            nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = "Dynamidrive Soundtracks"
-            nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = 1.0
-            nowPlayingInfo[MPNowPlayingInfoPropertyDefaultPlaybackRate] = 1.0
-            nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = masterPlaybackTime
-            
-            if let player = currentPlayers.first, let duration = player?.duration {
-                nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = duration
-            }
-            
-            if let appIcon = UIImage(named: "AlbumArt") {
-                nowPlayingInfo[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: appIcon.size) { _ in appIcon }
-            } else if let fallbackIcon = UIImage(systemName: "music.note")?.withTintColor(.white, renderingMode: .alwaysOriginal) {
-                nowPlayingInfo[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: fallbackIcon.size) { _ in fallbackIcon }
-            }
-            
-            nowPlayingInfoCenter.nowPlayingInfo = nowPlayingInfo
-        } else {
-            nowPlayingInfoCenter.nowPlayingInfo = nil
+        nowPlayingInfo[MPMediaItemPropertyTitle] = currentSoundtrackTitle
+        nowPlayingInfo[MPMediaItemPropertyArtist] = "Speed: \(Int(locationHandler.speedMPH.rounded())) mph"
+        nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = "Dynamidrive Soundtracks"
+        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = isSoundtrackPlaying ? 1.0 : 0.0
+        nowPlayingInfo[MPNowPlayingInfoPropertyDefaultPlaybackRate] = 1.0
+
+        // Use the actual player's currentTime if available
+        let currentTime = currentPlayers.first(where: { $0 != nil })??.currentTime ?? masterPlaybackTime
+        nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
+
+        if let player = currentPlayers.first, let duration = player?.duration {
+            nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = duration
         }
+        
+        if let appIcon = UIImage(named: "AlbumArt") {
+            nowPlayingInfo[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: appIcon.size) { _ in appIcon }
+        } else if let fallbackIcon = UIImage(systemName: "music.note")?.withTintColor(.white, renderingMode: .alwaysOriginal) {
+            nowPlayingInfo[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: fallbackIcon.size) { _ in fallbackIcon }
+        }
+        
+        nowPlayingInfoCenter.nowPlayingInfo = nowPlayingInfo
     }
     
     func toggleSoundtrackPlayback() {
@@ -132,9 +132,10 @@ class AudioController: ObservableObject {
         } else {
             let deviceCurrentTime = currentPlayers.first(where: { $0 != nil })??.deviceCurrentTime ?? 0
             let startTime = deviceCurrentTime + 0.1
-            
-            locationHandler.startDistanceTracking()
-            
+            // Use the current soundtrack's UUID for distance tracking
+            if let soundtrackID = currentSoundtrackID {
+                locationHandler.startDistanceTracking(for: soundtrackID)
+            }
             for (index, player) in currentPlayers.enumerated() {
                 if let player = player {
                     player.currentTime = masterPlaybackTime // Use masterPlaybackTime, which may be 0 after rewind
@@ -149,7 +150,7 @@ class AudioController: ObservableObject {
         updateNowPlayingInfo()
     }
     
-    func setCurrentSoundtrack(tracks: [SoundtrackData], players: [AVAudioPlayer?], title: String) {
+    func setCurrentSoundtrack(id: UUID, tracks: [SoundtrackData], players: [AVAudioPlayer?], title: String) {
         if currentSoundtrackTitle == title && isSoundtrackPlaying {
             return
         } else if currentSoundtrackTitle != title {
@@ -164,6 +165,7 @@ class AudioController: ObservableObject {
         currentTracks = tracks
         currentPlayers = players
         currentSoundtrackTitle = title
+        currentSoundtrackID = id
         updateNowPlayingInfo()
     }
     
@@ -188,7 +190,7 @@ class AudioController: ObservableObject {
         } else if !isAnyPlaying && syncTimer != nil {
             syncTimer?.invalidate()
             syncTimer = nil
-            masterPlaybackTime = 0
+            // Do NOT reset masterPlaybackTime here!
             updateNowPlayingInfo()
         }
     }
@@ -464,6 +466,7 @@ struct ContentView: View {
     @State private var editTip = EditPageTip()
     @State private var animateCards: Bool = false // Start invisible
     @State private var hasAnimatedOnce: Bool = false
+    @State private var wasPlaybackSheetOpenForSpeedDetail: Bool = false // Track if playback sheet was open before speed detail
     
     // MARK: Gauge Settings
     @AppStorage("portraitGaugeStyle") private var portraitGaugeStyle: String = "fullCircle" // "fullCircle" or "separatedArc"
@@ -572,10 +575,38 @@ struct ContentView: View {
                                     insertion: previousPage == .masterSettings ? .move(edge: .leading) : (previousPage == .import ? .move(edge: .trailing) : (isReturningFromConfigure ? .move(edge: .trailing) : (previousPage == .create || previousPage == .playback ? .move(edge: .leading) : .move(edge: .trailing)))),
                                     removal: .move(edge: .leading)))
                         case .create:
-                            createScreen
-                                .transition(.asymmetric(
-                                    insertion: previousPage == .import ? .move(edge: .leading) : .move(edge: createPageInsertionDirection),
-                                    removal: .move(edge: createPageRemovalDirection)))
+                            CreatePage(
+                                showCreatePage: $showCreatePage,
+                                showConfigurePage: $showConfigurePage,
+                                showVolumePage: $showVolumePage,
+                                createBaseAudioURL: $createBaseAudioURL,
+                                createBasePlayer: $createBasePlayer,
+                                createBaseIsPlaying: $createBaseIsPlaying,
+                                createBaseOffset: $createBaseOffset,
+                                createBaseShowingFilePicker: $createBaseShowingFilePicker,
+                                createBaseVolume: $createBaseVolume,
+                                createBaseTitle: $createBaseTitle,
+                                createAdditionalZStacks: $createAdditionalZStacks,
+                                createAdditionalTitles: $createAdditionalTitles,
+                                createAdditionalAlwaysPlaying: $createAdditionalAlwaysPlaying,
+                                createSoundtrackTitle: $createSoundtrackTitle,
+                                createReferenceLength: $createReferenceLength,
+                                createNextID: $createNextID,
+                                createAudio1MinimumSpeed: $createAudio1MinimumSpeed,
+                                createAudio1MaximumSpeed: $createAudio1MaximumSpeed,
+                                showAIUploadPage: $showAIUploadPage,
+                                gradientRotation: $gradientRotation,
+                                showInfoPage: $showInfoPage,
+                                currentPage: $currentPage,
+                                previousPage: $previousPage,
+                                createTip: $createTip,
+                                showLengthMismatchAlert: $showLengthMismatchAlert,
+                                soundtracks: $soundtracks
+                            )
+                            .environmentObject(audioController)
+                            .transition(.asymmetric(
+                                insertion: previousPage == .import ? .move(edge: .leading) : .move(edge: createPageInsertionDirection),
+                                removal: .move(edge: createPageRemovalDirection)))
                         case .configure:
                             configureScreen
                                 .transition(.asymmetric(insertion: .move(edge: configurePageInsertionDirection), removal: .move(edge: configurePageRemovalDirection)))
@@ -585,14 +616,35 @@ struct ContentView: View {
                         case .playback:
                             EmptyView()
                         case .edit:
-                            editScreen
+                            EditPage(showEditPage: $showEditPage)
                                 .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
                         case .speedDetail:
-                            speedDetailScreen
-                                .transition(.asymmetric(
-                                    insertion: previousPage == .playback ? .move(edge: .trailing) : .move(edge: .leading),
-                                    removal: showSettingsPage ? .move(edge: .leading) : .move(edge: .trailing)
-                                ))
+                            SpeedDetailPage(
+                                showSpeedDetailPage: $showSpeedDetailPage,
+                                showSettingsPage: $showSettingsPage,
+                                areButtonsVisible: $areButtonsVisible,
+                                animatedSpeed: $animatedSpeed,
+                                useBlackBackground: $useBlackBackground,
+                                landscapeGaugeStyle: $landscapeGaugeStyle,
+                                landscapeIndicatorStyle: $landscapeIndicatorStyle,
+                                landscapeShowMinMax: $landscapeShowMinMax,
+                                landscapeShowCurrentSpeed: $landscapeShowCurrentSpeed,
+                                landscapeShowSoundtrackTitle: $landscapeShowSoundtrackTitle,
+                                syncCircularGaugeSettings: $syncCircularGaugeSettings,
+                                gaugeFontStyle: $gaugeFontStyle,
+                                showPortraitSpeed: $showPortraitSpeed,
+                                portraitGaugeStyle: $portraitGaugeStyle,
+                                portraitShowMinMax: $portraitShowMinMax,
+                                pendingSoundtrack: $pendingSoundtrack,
+                                audioController: .constant(audioController),
+                                deviceOrientation: $deviceOrientation,
+                                startInactivityTimer: startInactivityTimer,
+                                invalidateInactivityTimer: invalidateInactivityTimer
+                            )
+                            .transition(.asymmetric(
+                                insertion: previousPage == .playback ? .move(edge: .trailing) : .move(edge: .leading),
+                                removal: showSettingsPage ? .move(edge: .leading) : .move(edge: .trailing)
+                            ))
                         case .settings:
                             settingsScreen
                                 .transition(.asymmetric(
@@ -728,8 +780,11 @@ struct ContentView: View {
         }
         .onChange(of: showPlaybackPage, initial: false) { _, newValue in
             if !newValue {
-                withAnimation(.easeInOut(duration: 0.5)) {
-                    currentPage = previousPage == .volume ? .volume : .main
+                // Only set currentPage to .main if Speed Detail is not open
+                if !showSpeedDetailPage {
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        currentPage = previousPage == .volume ? .volume : .main
+                    }
                 }
             }
         }
@@ -775,18 +830,27 @@ struct ContentView: View {
         }
         .onChange(of: showSpeedDetailPage, initial: false) { _, newValue in
             if newValue {
+                // Remember if the playback sheet was open before opening speed detail
+                wasPlaybackSheetOpenForSpeedDetail = showPlaybackPage
+                showPlaybackPage = false
                 playbackPageRemovalDirection = .leading
                 withAnimation(.easeInOut(duration: 0.5)) {
                     previousPage = currentPage
                     currentPage = .speedDetail
                 }
             } else {
-             
                 withAnimation(.easeInOut(duration: 0.5)) {
                     previousPage = .speedDetail
-                    currentPage = .playback
+                    currentPage = .main // Go to main first, then reopen sheet if needed
                     playbackPageInsertionDirection = .leading
                     playbackPageRemovalDirection = .trailing
+                }
+                // After the animation, reopen the playback sheet if it was open before
+                if wasPlaybackSheetOpenForSpeedDetail {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        showPlaybackPage = true
+                        wasPlaybackSheetOpenForSpeedDetail = false
+                    }
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     self.playbackPageInsertionDirection = .trailing
@@ -874,352 +938,6 @@ struct ContentView: View {
         LoadingScreen(isLoading: $isLoading, isSpinning: $isSpinning, currentPage: $currentPage)
     }
     
-    // MARK: - Create Page
-        private var createScreen: some View {
-            createPageContent
-                .zIndex(1)
-        }
-        
-        private var createPageBackground: some View {
-            VStack(spacing: 0) {
-                GeometryReader { geometry in
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color(.darkGray), .black]),
-                        startPoint: .top,
-                        endPoint: UnitPoint(x: 0.5, y: 286 / geometry.size.height)
-                    )
-                    .frame(height: geometry.size.height)
-                }
-            }
-            .edgesIgnoringSafeArea(.all)
-        }
-        
-        private var createPageContent: some View {
-            ZStack {
-                ScrollView {
-                    VStack(spacing: 40) {
-                        HStack {
-                            Text(createSoundtrackTitle)
-                                .font(.system(size: 35, weight: .medium))
-                                .foregroundColor(.white)
-                            Spacer()
-                            Button(action: {
-                                showInfoPage = true
-                            }) {
-                                Image(systemName: "info.circle")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.white)
-                                    .frame(width: 30, height: 30)
-                            }
-                        }
-                        VStack(spacing: 10) {
-                            baseAudioStack
-                            dynamicAudioStacks
-                            addAudioButton
-                        }
-                        Spacer().frame(height: 100)
-                    }
-                    .padding()
-                    .offset(y: -15)
-                }
-
-                ZStack {
-                }
-                .frame(height: 150)
-                .allowsHitTesting(false)
-
-                VStack {
-                    Spacer()
-                    HStack(spacing: 80) {
-                        Button(action: {
-                            pauseAllAudio()
-                            showCreatePage = false
-                        }) {
-                            Image(systemName: "arrow.uturn.backward")
-                            .globalButtonStyle()                        }
-                        
-                        Button(action: {
-                            if createBaseAudioURL != nil && createAdditionalZStacks.contains(where: { $0.audioURL != nil }) {
-                                showConfigurePage = true
-                            } else {
-                                UINotificationFeedbackGenerator().notificationOccurred(.error)
-                            }
-                        }) {
-                            Image(systemName: "arrow.forward")
-                                .globalButtonStyle()
-                        }
-                        .opacity(createBaseAudioURL != nil && createAdditionalZStacks.contains(where: { $0.audioURL != nil }) ? 1.0 : 0.5)
-                        
-                        ZStack {
-                            Image("Gradient")
-                                .resizable()
-                                .scaledToFit()
-                                .opacity(1)
-                                .frame(width: 115, height: 115)
-                                .rotationEffect(.degrees(gradientRotation))
-                                .onAppear {
-                                    gradientRotation = 0
-                                    withAnimation(Animation.linear(duration: 10).repeatForever(autoreverses: false)) {
-                                        gradientRotation = 360
-                                    }
-                                }
-                                .onDisappear {
-                                    gradientRotation = 0
-                                }
-                            
-                            Button(action: {
-                                showAIUploadPage = true
-                                currentPage = .aiUpload
-                                previousPage = .create
-                            }) {
-                                Image(systemName: "sparkles")
-                                    .globalButtonStyle()
-                            }
-                            .popoverTip(createTip, arrowEdge: .bottom)
-                        }
-                        .frame(width: 50, height: 50)
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 8)
-                    .background(Color.clear)
-                }
-                .ignoresSafeArea(.keyboard)
-                .zIndex(2)
-            }
-            .sheet(isPresented: $showInfoPage) {
-                infoPage()
-            }
-            .task {
-                try? await Task.sleep(for: .seconds(1))
-                try? Tips.configure()
-            }
-        }
-        
-        private var baseAudioStack: some View {
-            GeometryReader { geometry in
-                baseAudioCard(geometry: geometry)
-                    .offset(x: createBaseOffset)
-                    .gesture(baseAudioGesture)
-            }
-            .frame(height: 108)
-            .alert(isPresented: $showLengthMismatchAlert) {
-                Alert(
-                    title: Text("Length Mismatch"),
-                    message: Text("All tracks should be the same length"),
-                    dismissButton: .default(Text("OK"))
-                )
-            }
-        }
-        
-        private func baseAudioCard(geometry: GeometryProxy) -> some View {
-            ZStack {
-                GlobalCardAppearance
-                Text(createBaseTitle)
-                    .font(.system(size: 35, weight: .semibold))
-                    .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
-                    .minimumScaleFactor(0.3)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(2)
-                    .offset(x:-40)
-                    .foregroundColor(.white)
-                    .padding(.leading, 16)
-                Button(action: {
-                    if createBaseAudioURL == nil {
-                        createBaseShowingFilePicker = true
-                    } else {
-                        toggleBasePlayback()
-                    }
-                }) {
-                    Image(systemName: createBaseAudioURL == nil ? "document.badge.plus.fill" : (createBaseIsPlaying ? "pause.fill" : "play.fill"))
-                        .globalButtonStyle()
-                        .offset(x: createBaseAudioURL == nil ? 1.5 : 0)
-                }
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.trailing, 20)
-                .sheet(isPresented: $createBaseShowingFilePicker, content: baseAudioPicker)
-            }
-        }
-        
-        private var baseAudioGesture: some Gesture {
-            DragGesture()
-                .onChanged { value in
-                    createBaseOffset = value.translation.width
-                }
-                .onEnded { value in
-                    if value.translation.width < -50 {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            createBaseOffset = -UIScreen.main.bounds.width
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            if let url = createBaseAudioURL {
-                                removeAudioFile(at: url)
-                            }
-                            if createBaseIsPlaying, let player = createBasePlayer {
-                                player.pause()
-                                createBaseIsPlaying = false
-                            }
-                            createBaseAudioURL = nil
-                            createBasePlayer = nil
-                            createBaseOffset = 0
-                            createBaseVolume = 0.0
-                            createBaseTitle = "Base"
-                            if createAdditionalZStacks.isEmpty {
-                                createReferenceLength = nil
-                            }
-                        }
-                    } else {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            createBaseOffset = 0
-                        }
-                    }
-                }
-        }
-        
-        private func baseAudioPicker() -> some View {
-            DocumentPicker { url in
-                if let storedURL = storeAudioFile(url, name: "Soundtrack\(soundtracks.count + 1)Base_\(UUID().uuidString)") {
-                    if let tempPlayer = try? AVAudioPlayer(contentsOf: storedURL) {
-                        let duration = tempPlayer.duration
-                        if createReferenceLength == nil || createAdditionalZStacks.isEmpty {
-                            createReferenceLength = duration
-                            createBaseAudioURL = storedURL
-                            createBasePlayer = tempPlayer
-                            createBasePlayer?.volume = mapVolume(createBaseVolume)
-                            createBasePlayer?.prepareToPlay()
-                        } else if abs(duration - createReferenceLength!) < 0.1 {
-                            createBaseAudioURL = storedURL
-                            createBasePlayer = tempPlayer
-                            createBasePlayer?.volume = mapVolume(createBaseVolume)
-                            createBasePlayer?.prepareToPlay()
-                        } else {
-                            removeAudioFile(at: storedURL)
-                            showLengthMismatchAlert = true
-                        }
-                    }
-                }
-            }
-        }
-        
-        private var dynamicAudioStacks: some View {
-            ForEach(createAdditionalZStacks.indices, id: \.self) { index in
-                GeometryReader { geometry in
-                    dynamicAudioCard(geometry: geometry, index: index)
-                        .offset(x: createAdditionalZStacks[index].offset)
-                        .gesture(dynamicAudioGesture(index: index))
-                }
-                .frame(height: 108)
-            }
-        }
-        
-        private func dynamicAudioCard(geometry: GeometryProxy, index: Int) -> some View {
-            ZStack {
-                GlobalCardAppearance
-                Text(index < createAdditionalTitles.count ? createAdditionalTitles[index] : "Audio \(index + 1)")
-                    .font(.system(size: 35, weight: .semibold))
-                    .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
-                    .minimumScaleFactor(0.3)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(2)
-                    .offset(x:-40)
-                    .foregroundColor(.white)
-                    .padding(.leading, 16)
-                Button(action: {
-                    if createAdditionalZStacks[index].audioURL == nil {
-                        createAdditionalZStacks[index].showingFilePicker = true
-                    } else {
-                        togglePlayback(at: index)
-                    }
-                }) {
-                    Image(systemName: createAdditionalZStacks[index].audioURL == nil ? "document.badge.plus.fill" : (createAdditionalZStacks[index].isPlaying ? "pause.fill" : "play.fill"))
-                        .globalButtonStyle()
-                        .offset(x: createBaseAudioURL == nil ? 1.5 : 0)
-                }
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.trailing, 20)
-                .sheet(isPresented: Binding(
-                    get: { createAdditionalZStacks[index].showingFilePicker },
-                    set: { newValue in createAdditionalZStacks[index].showingFilePicker = newValue }
-                )) {
-                    dynamicAudioPicker(index: index)
-                }
-            }
-        }
-        
-        private func dynamicAudioGesture(index: Int) -> some Gesture {
-            DragGesture()
-                .onChanged { value in
-                    createAdditionalZStacks[index].offset = value.translation.width
-                }
-                .onEnded { value in
-                    if value.translation.width < -50 {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            createAdditionalZStacks[index].offset = -UIScreen.main.bounds.width
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            if let url = createAdditionalZStacks[index].audioURL {
-                                removeAudioFile(at: url)
-                            }
-                            if createAdditionalZStacks[index].isPlaying, let player = createAdditionalZStacks[index].player {
-                                player.pause()
-                                createAdditionalZStacks[index].isPlaying = false
-                            }
-                            createAdditionalZStacks.remove(at: index)
-                            if index < createAdditionalTitles.count {
-                                createAdditionalTitles.remove(at: index)
-                                createAdditionalAlwaysPlaying.remove(at: index)
-                            }
-                            if createAdditionalZStacks.isEmpty && createBaseAudioURL == nil {
-                                createReferenceLength = nil
-                            }
-                        }
-                    } else {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            createAdditionalZStacks[index].offset = 0
-                        }
-                    }
-                }
-        }
-        
-        private func dynamicAudioPicker(index: Int) -> some View {
-            DocumentPicker { url in
-                if let storedURL = storeAudioFile(url, name: "Soundtrack\(soundtracks.count + 1)Audio\(index + 1)_\(UUID().uuidString)") {
-                    if let tempPlayer = try? AVAudioPlayer(contentsOf: storedURL) {
-                        let duration = tempPlayer.duration
-                        if createReferenceLength == nil || abs(duration - createReferenceLength!) < 0.1 {
-                            createAdditionalZStacks[index].audioURL = storedURL
-                            createAdditionalZStacks[index].player = tempPlayer
-                            createAdditionalZStacks[index].player?.volume = mapVolume(createAdditionalZStacks[index].volume)
-                            createAdditionalZStacks[index].player?.prepareToPlay()
-                            if createReferenceLength == nil {
-                                createReferenceLength = duration
-                            }
-                        } else {
-                            removeAudioFile(at: storedURL)
-                            showLengthMismatchAlert = true
-                        }
-                    }
-                }
-            }
-        }
-        
-        private var addAudioButton: some View {
-            HStack(spacing: 20) {
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        createAdditionalZStacks.append(ZStackData(id: createNextID))
-                        createAdditionalTitles.append("Audio \(createNextID)")
-                        createAdditionalAlwaysPlaying.append(false)
-                        createNextID += 1
-                    }
-                }) {
-                    Image(systemName: "plus")
-                        .globalButtonStyle()
-                }
-                
-            }
-            .padding(.top, 10)
-        }
-    
     // MARK: - Volume Page
     private var volumeScreen: some View {
         VolumeScreen( 
@@ -1264,40 +982,10 @@ struct ContentView: View {
     
 
     
-    // MARK: - Edit Page
-    private var editScreen: some View {
-        VStack(spacing: 20) {
-            HStack {
-                Text("Edit Soundtrack")
-                    .font(.system(size: 35, weight: .bold))
-                    .foregroundColor(.white)
-                Spacer()
-            }
-            Spacer()
-        }
-        .padding()
-        .overlay(
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.5)) {
-                    showEditPage = false
-                }
-            }) {
-                Image(systemName: "arrow.uturn.backward")
-                    .font(.system(size: 20))
-                    .foregroundColor(.white)
-                    .frame(width: 50, height: 50)
-                    .background(Color.white.opacity(0.2))
-                    .clipShape(Circle())
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-            .padding()
-        )
-        .zIndex(4)
-    }
-  
+    
     // MARK: Speed Detail Components
     private func landscapeLinearGauge(geometry: GeometryProxy) -> some View {
-        let scaledSpeed = min(animatedSpeed, 100)
+        let scaledSpeed = animatedSpeed // Remove min(animatedSpeed, 100)
         return ZStack(alignment: .center) {
             // Soundtrack title for linear gauge only
             if landscapeShowSoundtrackTitle {
@@ -1313,7 +1001,7 @@ struct ContentView: View {
             Group {
                 if landscapeIndicatorStyle == "fill" {
                     if landscapeShowMinMax {
-                        Gauge(value: scaledSpeed, in: 0...100) {
+                        Gauge(value: scaledSpeed, in: 0...180) {
                             EmptyView()
                         } currentValueLabel: {
                             EmptyView()
@@ -1322,7 +1010,7 @@ struct ContentView: View {
                                 .font(.system(size: 16, design: gaugeFontStyle == "rounded" ? .rounded : .default))
                                 .foregroundColor(.white)
                         } maximumValueLabel: {
-                            Text("100")
+                            Text("180")
                                 .font(.system(size: 16, design: gaugeFontStyle == "rounded" ? .rounded : .default))
                                 .foregroundColor(.white)
                         }
@@ -1330,7 +1018,7 @@ struct ContentView: View {
                         .frame(width: geometry.size.width * 0.2, height: 8)
                         .scaleEffect(4.0)
                     } else {
-                        Gauge(value: scaledSpeed, in: 0...100) {
+                        Gauge(value: scaledSpeed, in: 0...180) {
                             EmptyView()
                         }
                         .gaugeStyle(.linearCapacity)
@@ -1338,7 +1026,7 @@ struct ContentView: View {
                         .scaleEffect(4.0)
                     }
                 } else {
-                    Gauge(value: scaledSpeed, in: 0...100) {
+                    Gauge(value: scaledSpeed, in: 0...180) {
                         EmptyView()
                     } currentValueLabel: {
                         EmptyView()
@@ -1350,7 +1038,7 @@ struct ContentView: View {
                         }
                     } maximumValueLabel: {
                         if landscapeShowMinMax {
-                            Text("100")
+                            Text("180")
                                 .font(.system(size: 16, design: gaugeFontStyle == "rounded" ? .rounded : .default))
                                 .foregroundColor(.white)
                         }
@@ -1391,9 +1079,9 @@ struct ContentView: View {
     }
     
     private func landscapeCircularGauge(geometry: GeometryProxy) -> some View {
-        let scaledSpeed = min(animatedSpeed, 100)
+        let scaledSpeed = animatedSpeed // Remove min(animatedSpeed, 100)
         return ZStack {
-            Gauge(value: scaledSpeed, in: 0...100) {
+            Gauge(value: scaledSpeed, in: 0...180) {
                 EmptyView()
             } currentValueLabel: {
                 EmptyView()
@@ -1406,7 +1094,7 @@ struct ContentView: View {
                 }
             } maximumValueLabel: {
                 if landscapeShowMinMax {
-                    Text("100")
+                    Text("180")
                         .font(.system(size: 10, design: gaugeFontStyle == "rounded" ? .rounded : .default))
                         .foregroundColor(.white)
                         .minimumScaleFactor(0.5)
@@ -1432,11 +1120,11 @@ struct ContentView: View {
     }
     
     private func portraitGauge(geometry: GeometryProxy) -> some View {
-        let scaledSpeed = min(animatedSpeed, 100)
+        let scaledSpeed = animatedSpeed // Remove min(animatedSpeed, 100)
         return Group {
             if portraitGaugeStyle == "fullCircle" {
                 ZStack {
-                    Gauge(value: scaledSpeed, in: 0...100) {
+                    Gauge(value: scaledSpeed, in: 0...180) {
                         EmptyView()
                     } currentValueLabel: {
                         EmptyView()
@@ -1461,7 +1149,7 @@ struct ContentView: View {
                 }
             } else {
                 ZStack {
-                    Gauge(value: scaledSpeed, in: 0...100) {
+                    Gauge(value: scaledSpeed, in: 0...180) {
                         EmptyView()
                     } currentValueLabel: {
                         EmptyView()
@@ -1474,7 +1162,7 @@ struct ContentView: View {
                         }
                     } maximumValueLabel: {
                         if portraitShowMinMax {
-                            Text("100")
+                            Text("180")
                                 .font(.system(size: 10, design: gaugeFontStyle == "rounded" ? .rounded : .default))
                                 .foregroundColor(.white)
                                 .minimumScaleFactor(0.5)
@@ -1540,11 +1228,7 @@ struct ContentView: View {
                             }
                         }) {
                             Image(systemName: "arrow.uturn.backward")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white)
-                                .frame(width: 50, height: 50)
-                                .background(Color.white.opacity(0.2))
-                                .clipShape(Circle())
+                                .globalButtonStyle()
                         }
                         
                         Button(action: {
@@ -1553,11 +1237,7 @@ struct ContentView: View {
                             }
                         }) {
                             Image(systemName: "gearshape")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white)
-                                .frame(width: 50, height: 50)
-                                .background(Color.white.opacity(0.2))
-                                .clipShape(Circle())
+                                .globalButtonStyle()
                         }
                     }
                     .padding(.bottom, 20)
@@ -1946,7 +1626,15 @@ struct ContentView: View {
                 stopPreviewTrackingTimer()
             }
         } else {
-            if let firstPlayingPlayer = getFirstPlayingPlayer(), firstPlayingPlayer.isPlaying {
+            if audioController.isSoundtrackPlaying {
+                audioController.toggleSoundtrackPlayback()
+            }
+            // Removed pauseAllAudio() here to allow multiple preview tracks
+            // Reset playback position if nothing else is playing
+            let isAnyPlaying = createAdditionalZStacks.contains(where: { $0.isPlaying })
+            if !isAnyPlaying {
+                audioController.masterPlaybackTime = 0
+            } else if let firstPlayingPlayer = getFirstPlayingPlayer(), firstPlayingPlayer.isPlaying {
                 audioController.masterPlaybackTime = firstPlayingPlayer.currentTime
             }
             player.currentTime = audioController.masterPlaybackTime
@@ -1966,7 +1654,15 @@ struct ContentView: View {
                 stopPreviewTrackingTimer()
             }
         } else {
-            if let firstPlayingPlayer = getFirstPlayingPlayer(), firstPlayingPlayer.isPlaying {
+            if audioController.isSoundtrackPlaying {
+                audioController.toggleSoundtrackPlayback()
+            }
+            // Removed pauseAllAudio() here to allow multiple preview tracks
+            // Reset playback position if nothing else is playing
+            let isAnyPlaying = createBaseIsPlaying || createAdditionalZStacks.contains(where: { $0.isPlaying && $0.id != createAdditionalZStacks[index].id })
+            if !isAnyPlaying {
+                audioController.masterPlaybackTime = 0
+            } else if let firstPlayingPlayer = getFirstPlayingPlayer(), firstPlayingPlayer.isPlaying {
                 audioController.masterPlaybackTime = firstPlayingPlayer.currentTime
             }
             player.currentTime = audioController.masterPlaybackTime
@@ -2080,7 +1776,7 @@ struct ContentView: View {
             print("No tracks found for soundtrack: \(soundtrack.title)")
             soundtracks.removeAll { $0.id == soundtrack.id }
             if audioController.currentSoundtrackTitle == soundtrack.title {
-                audioController.setCurrentSoundtrack(tracks: [], players: [], title: "")
+                audioController.setCurrentSoundtrack(id: soundtrack.id, tracks: [], players: [], title: "")
             }
             saveSoundtracks()
             return
@@ -2092,7 +1788,7 @@ struct ContentView: View {
         soundtracks.removeAll { $0.id == soundtrack.id }
         
         if audioController.currentSoundtrackTitle == soundtrack.title {
-            audioController.setCurrentSoundtrack(tracks: [], players: [], title: "")
+            audioController.setCurrentSoundtrack(id: soundtrack.id, tracks: [], players: [], title: "")
         }
         
         print("Deleted soundtrack: \(soundtrack.title)")
@@ -2742,12 +2438,15 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var speedMPH: Double = 0.0
     @Published var status: String = "Starting..."
     @Published var location: CLLocation?
-    @Published var currentSoundtrackDistance: Double = 0.0  // Distance in miles
     @AppStorage("locationTrackingEnabled") private var locationTrackingEnabled: Bool = true
     @AppStorage("hasGrantedLocationPermission") private var hasGrantedLocationPermission = false
     private var lastLocation: CLLocation?
     private var isTrackingDistance: Bool = false
     private let locationManager = CLLocationManager()
+    private var currentSoundtrackID: UUID?
+    
+    // Per-soundtrack distance storage
+    @Published var soundtrackDistances: [UUID: Double] = [:] // miles
     
     override init() {
         super.init()
@@ -2755,6 +2454,70 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.pausesLocationUpdatesAutomatically = false
+        loadDistances()
+    }
+    
+    func startDistanceTracking(for soundtrackID: UUID?) {
+        isTrackingDistance = true
+        lastLocation = location
+        currentSoundtrackID = soundtrackID
+    }
+    
+    func stopDistanceTracking() {
+        isTrackingDistance = false
+        lastLocation = nil
+        currentSoundtrackID = nil
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else {
+            speedMPH = 0.0
+            status = "No location data"
+            print("No location data received")
+            return
+        }
+        self.location = location
+        let speed = max(location.speed, 0)
+        speedMPH = speed * 2.23694 // Remove min(..., 80) to allow speeds above 80
+        
+        // Calculate distance if tracking is enabled and locationTrackingEnabled is true
+        if isTrackingDistance && locationTrackingEnabled, let soundtrackID = currentSoundtrackID {
+            if let lastLoc = lastLocation {
+                let distanceInMeters = location.distance(from: lastLoc)
+                let distanceInMiles = distanceInMeters / 1609.34  // Convert meters to miles
+                let prev = soundtrackDistances[soundtrackID] ?? 0.0
+                soundtrackDistances[soundtrackID] = prev + distanceInMiles
+                saveDistances()
+            }
+            lastLocation = location
+        }
+        
+        status = "Lat: \(location.coordinate.latitude), Lon: \(location.coordinate.longitude), Speed: \(String(format: "%.1f", speedMPH)) mph"
+        print("Location update: Speed = \(String(format: "%.1f", speedMPH)) mph, Status = \(status)")
+        
+        if let audioController = (UIApplication.shared.delegate as? AppDelegate)?.audioController {
+            audioController.adjustVolumesForSpeed(speedMPH)
+        }
+    }
+    
+    // Persistence for per-soundtrack distances
+    private let distancesKey = "soundtrackDistances"
+    private func saveDistances() {
+        let dict = soundtrackDistances.mapValues { $0 }
+        if let data = try? JSONEncoder().encode(dict) {
+            UserDefaults.standard.set(data, forKey: distancesKey)
+        }
+    }
+    private func loadDistances() {
+        if let data = UserDefaults.standard.data(forKey: distancesKey),
+           let dict = try? JSONDecoder().decode([UUID: Double].self, from: data) {
+            soundtrackDistances = dict
+        }
+    }
+    func resetAllDistanceData() {
+        soundtrackDistances = [:]
+        saveDistances()
+        lastLocation = nil
     }
     
     func startLocationUpdates() {
@@ -2762,7 +2525,6 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
         if !hasGrantedLocationPermission {
             return
         }
-        
         let authStatus = locationManager.authorizationStatus
         print("Location authorization status on start: \(authStatus)")
         if authStatus == .notDetermined {
@@ -2781,96 +2543,6 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
             locationManager.startUpdatingLocation()
             status = "Waiting for GPS fix..."
             print("Started location updates with desired accuracy: BestForNavigation")
-        }
-    }
-    
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last else {
-            speedMPH = 0.0
-            status = "No location data"
-            print("No location data received")
-            return
-        }
-        self.location = location
-        let speed = max(location.speed, 0)
-        speedMPH = min(speed * 2.23694, 80)
-        
-        // Calculate distance if tracking is enabled and locationTrackingEnabled is true
-        if isTrackingDistance && locationTrackingEnabled {
-            if let lastLoc = lastLocation {
-                let distanceInMeters = location.distance(from: lastLoc)
-                let distanceInMiles = distanceInMeters / 1609.34  // Convert meters to miles
-                currentSoundtrackDistance += distanceInMiles
-            }
-            lastLocation = location
-        }
-        
-        status = "Lat: \(location.coordinate.latitude), Lon: \(location.coordinate.longitude), Speed: \(String(format: "%.1f", speedMPH)) mph"
-        print("Location update: Speed = \(String(format: "%.1f", speedMPH)) mph, Status = \(status)")
-        
-        if let audioController = (UIApplication.shared.delegate as? AppDelegate)?.audioController {
-            audioController.adjustVolumesForSpeed(speedMPH)
-        }
-    }
-    
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        status = "Error: \(error.localizedDescription)"
-        speedMPH = 0.0
-        location = nil
-        print("Location update failed: \(error.localizedDescription)")
-    }
-    
-    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        print("Authorization status changed to: \(status)")
-        switch status {
-        case .notDetermined:
-            self.status = "Awaiting permission"
-        case .restricted, .denied:
-            self.status = "Location access denied - check Settings"
-            print("Location access denied or restricted")
-            hasGrantedLocationPermission = false
-        case .authorizedWhenInUse:
-            print("Received When In Use, requesting Always authorization")
-            locationManager.requestAlwaysAuthorization()
-            self.status = "Requesting Always permission..."
-            hasGrantedLocationPermission = true
-        case .authorizedAlways:
-            locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
-            locationManager.distanceFilter = kCLDistanceFilterNone
-            locationManager.allowsBackgroundLocationUpdates = true
-            locationManager.pausesLocationUpdatesAutomatically = false
-            locationManager.activityType = .automotiveNavigation
-            locationManager.startUpdatingLocation()
-            self.status = "Waiting for GPS fix..."
-            print("Started location updates with Always authorization")
-            hasGrantedLocationPermission = true
-        @unknown default:
-            self.status = "Unknown authorization status"
-            print("Unknown authorization status")
-            hasGrantedLocationPermission = false
-        }
-    }
-    
-    func stopDistanceTracking() {
-        isTrackingDistance = false
-        lastLocation = nil
-    }
-    
-    func startDistanceTracking() {
-        isTrackingDistance = true
-        lastLocation = location
-        currentSoundtrackDistance = 0.0  // Reset distance when starting new tracking
-    }
-    
-    func resetAllDistanceData() {
-        // Reset current soundtrack distance
-        currentSoundtrackDistance = 0.0
-        lastLocation = nil
-        
-        // Reset any stored distance data in UserDefaults
-        if let bundleID = Bundle.main.bundleIdentifier {
-            UserDefaults.standard.removePersistentDomain(forName: bundleID)
-            UserDefaults.standard.synchronize()
         }
     }
 }

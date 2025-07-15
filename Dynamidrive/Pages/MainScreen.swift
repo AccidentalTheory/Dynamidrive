@@ -275,7 +275,8 @@ struct MainScreen: View {
                                 .lineLimit(1)
                             
                             if locationTrackingEnabled {
-                                Text("Distance Played: \(Int(ceil(audioController.isSoundtrackPlaying && audioController.currentSoundtrackTitle == soundtrack.title ? locationHandler.currentSoundtrackDistance : 0.0))) mi")
+                                let miles = locationHandler.soundtrackDistances[soundtrack.id] ?? 0.0
+                                Text("Distance Played: \(Int(ceil(miles))) mi")
                                     .foregroundColor(.gray)
                                     .font(.system(size: 16, weight: .medium))
                             }
@@ -288,18 +289,19 @@ struct MainScreen: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                 
                 if !isMainScreenEditMode {
+                    let isCurrentAndPlaying = audioController.isSoundtrackPlaying && audioController.currentSoundtrackTitle == soundtrack.title
                     Button(action: {
                         if audioController.currentSoundtrackTitle != soundtrack.title {
                             if audioController.isSoundtrackPlaying {
                                 audioController.toggleSoundtrackPlayback()
                             }
-                            audioController.setCurrentSoundtrack(tracks: soundtrack.tracks, players: soundtrack.players, title: soundtrack.title)
+                            audioController.setCurrentSoundtrack(id: soundtrack.id, tracks: soundtrack.tracks, players: soundtrack.players, title: soundtrack.title)
                             audioController.toggleSoundtrackPlayback()
                         } else {
                             audioController.toggleSoundtrackPlayback()
                         }
                     }) {
-                        Image(systemName: audioController.isSoundtrackPlaying && audioController.currentSoundtrackTitle == soundtrack.title ? "pause.fill" : "play.fill")
+                        Image(systemName: isCurrentAndPlaying ? "pause.fill" : "play.fill")
                             .globalButtonStyle()
                     }
                 } else {
