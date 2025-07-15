@@ -429,6 +429,7 @@ struct ContentView: View {
     enum MapStyle: String {
         case standard
         case satellite
+        case muted // New case for Muted map style
     }
     
     enum BackgroundType: String, Codable {
@@ -546,19 +547,35 @@ struct ContentView: View {
             ZStack {
                 // Fixed map and blur background for all pages
                 if backgroundType == .map && hasGrantedLocationPermission {
-                    Map(position: $cameraPosition, interactionModes: []) {
-                        UserAnnotation()
-                    }
-                    .mapStyle(mapStyle == .satellite ? .imagery(elevation: .realistic) : .standard)
-                    .mapControlVisibility(.hidden)
-                    .ignoresSafeArea(.all)
-                    .onAppear {
-                        // Set initial camera position to follow user location
-                        cameraPosition = .userLocation(followsHeading: false, fallback: .camera(MapCamera(
-                            centerCoordinate: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
-                            distance: 1000,
-                            heading: 0
-                        )))
+                    if mapStyle == .muted {
+                        let debugCoordinate = locationHandler.location?.coordinate
+                        MutedMapViewContainer(
+                            styleURL: "mapbox://styles/kaianthonyd/cmd4pbdi6035j01srdizv9b0a",
+                            coordinate: debugCoordinate,
+                            currentPage: $currentPage,
+                        )
+                        .onAppear {
+                            print("Coordinate passed to MutedMapView:", debugCoordinate as Any)
+                        }
+                        .onChange(of: debugCoordinate) { newValue in
+                            print("Coordinate passed to MutedMapView changed:", newValue as Any)
+                        }
+                    } else {
+                        Map(position: $cameraPosition, interactionModes: []) {
+                            UserAnnotation()
+                        }
+                        .mapStyle(
+                            mapStyle == .satellite ? .imagery(elevation: .realistic) : .standard
+                        )
+                        .mapControlVisibility(.hidden)
+                        .ignoresSafeArea(.all)
+                        .onAppear {
+                            cameraPosition = .userLocation(followsHeading: false, fallback: .camera(MapCamera(
+                                centerCoordinate: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
+                                distance: 1000,
+                                heading: 0
+                            )))
+                        }
                     }
                 } else {
                     LinearGradient(
@@ -571,6 +588,7 @@ struct ContentView: View {
                 
                 Rectangle()
                     .fill(.ultraThinMaterial)
+                    .opacity(backgroundType == .map && mapStyle == .muted ? 0 : 1)
                     .ignoresSafeArea(.all)
                 
                 // Handle initial load with opacity-based fade

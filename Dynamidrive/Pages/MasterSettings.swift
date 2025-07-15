@@ -57,6 +57,7 @@ struct MasterSettings: View {
     enum MapStyle: String {
         case standard
         case satellite
+        case muted // New case for Muted map style
     }
     
     enum BackgroundType: String, Codable {
@@ -101,6 +102,7 @@ struct MasterSettings: View {
                                 Picker("Map Style", selection: $mapStyle) {
                                     Text("Default").tag(MapStyle.standard)
                                     Text("Satellite").tag(MapStyle.satellite)
+                                    Text("Muted").tag(MapStyle.muted) 
                                 }
                                 .pickerStyle(MenuPickerStyle())
                                 .accentColor(.white)
