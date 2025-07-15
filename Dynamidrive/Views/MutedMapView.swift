@@ -19,7 +19,7 @@ struct MutedMapView: UIViewRepresentable {
         let mapView = MapView(frame: .zero, mapInitOptions: mapInitOptions)
 
         // Hide Mapbox logo/attribution if desired (check Mapbox TOS)
-        mapView.ornaments.logoView.isHidden = true
+        mapView.ornaments.logoView.isHidden = false
         mapView.ornaments.attributionButton.isHidden = true
 
         // Remove the user's location puck (do not show it)
