@@ -130,6 +130,27 @@ class AudioController: ObservableObject {
             locationHandler.stopDistanceTracking()
             updateSyncTimer()
         } else {
+            // --- Synchronize all players before playing ---
+            let tolerance: TimeInterval = 0.05
+            // Find a reference time (use masterPlaybackTime if set, else first player's time, else 0)
+            let referenceTime: TimeInterval = {
+                if masterPlaybackTime > 0 {
+                    return masterPlaybackTime
+                } else if let firstPlayer = currentPlayers.first(where: { $0 != nil }) {
+                    return firstPlayer?.currentTime ?? 0.0
+                } else {
+                    return 0.0
+                }
+            }()
+            // Check if all players are within tolerance
+            let allSynced = currentPlayers.compactMap { $0?.currentTime }.allSatisfy { abs($0 - referenceTime) < tolerance }
+            if !allSynced {
+                // Set all players to the reference time
+                for player in currentPlayers {
+                    player?.currentTime = referenceTime
+                }
+                masterPlaybackTime = referenceTime
+            }
             let deviceCurrentTime = currentPlayers.first(where: { $0 != nil })??.deviceCurrentTime ?? 0
             let startTime = deviceCurrentTime + 0.1
             // Use the current soundtrack's UUID for distance tracking
@@ -665,6 +686,7 @@ struct ContentView: View {
                                 ))
                         case .masterSettings:
                             MasterSettings(currentPage: $currentPage)
+                                .environmentObject(locationHandler)
                                 .transition(.asymmetric(
                                     insertion: .move(edge: .trailing),
                                     removal: .move(edge: .trailing)
