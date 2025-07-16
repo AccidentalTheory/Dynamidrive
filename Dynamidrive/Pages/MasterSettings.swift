@@ -2,6 +2,7 @@ import SwiftUI
 import MapKit
 import UIKit
 
+
 struct MasterSettings: View {
     @Binding var currentPage: AppPage
     @AppStorage("mapStyle") private var mapStyle: MapStyle = .standard
@@ -85,257 +86,207 @@ struct MasterSettings: View {
     }
     
     var body: some View {
-        ZStack {
-            // Header (outside scrollable content)
-            VStack {
-                HStack {
-                    Button(action: {
-                        if let url = URL(string: "https://Dynamidrive.App") {
-                            UIApplication.shared.open(url)
-                        }
-                    }) {
-                        Image(systemName: "globe")
+        PageLayout(
+            title: "Settings",
+            leftButtonAction: {
+                if let url = URL(string: "https://Dynamidrive.App") {
+                    UIApplication.shared.open(url)
+                }
+            },
+            rightButtonAction: {
+                currentPage = .layout
+            },
+            leftButtonSymbol: "globe",
+            rightButtonSymbol: "ant.fill",
+            bottomButtons: [
+                PageButton(
+                    label: {
+                        Image(systemName: "arrow.uturn.backward")
                             .globalButtonStyle()
-                    }
-                    Spacer()
-                    Text("Settings")
-                        .font(.system(size: 25, weight: .medium))
-                        .foregroundColor(.white)
-                        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                    Spacer()
-                    // Blank button for layout symmetry
-                    Button(action: {
-                        // Globe button action (can be filled in later)
-                    }) {
-                        Image(systemName: "SF SYMBOL")
-                            .globalButtonStyle()
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.top, UIScreen.main.bounds.height * 0.01)
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, alignment: .top)
-            .zIndex(2)
-
-            // Main Content
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 40) {
-                    Spacer().frame(height: 90) // Add space for header
-                    
-                    // SORT BY Section (now as vertical card-styled buttons)
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("SORT BY")
-                                .font(.headline)
-                                .foregroundColor(.gray)
-                            Spacer()
-                            if showSortOrderText {
-                                Text(isSortChevronUp ? "Ascending" : "Descending")
-                                    .foregroundColor(.gray)
-                                    .transition(.opacity)
-                                    .animation(.easeInOut(duration: 0.3), value: showSortOrderText)
-                            }
-                            Button(action: {
-                                isSortChevronUp.toggle()
-                                showSortOrderText = true
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                                    withAnimation {
-                                        showSortOrderText = false
-                                    }
-                                }
-                            }) {
-                                Image(systemName: isSortChevronUp ? "chevron.up" : "chevron.down")
-                                    .foregroundColor(.gray)
-                            }
-                        }
-                        .padding(.horizontal)
-                        VStack(spacing: 0) {
-                            ForEach(SortOption.orderedCases) { option in
-                                Button(action: {
-                                    sortOption = option
-                                }) {
-                                    HStack {
-                                        Text(option.rawValue)
-                                            .foregroundColor(.white)
-                                            .fontWeight(sortOption == option ? .bold : .regular)
-                                        Spacer()
-                                        if sortOption == option {
-                                            Image(systemName: "checkmark")
-                                                .foregroundColor(.white)
-                                                .fontWeight(.bold)
-                                        }
-                                    }
-                                    .padding()
-                                }
-                            }
-                        }
-                        .background(GlobalCardAppearance)
-                        
-                    }
-                    .padding(.horizontal)
-                    
-                    // Background Settings Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("BACKGROUND")
-                            .font(.headline)
-                            .foregroundColor(.gray)
-                            .padding(.horizontal)
-                        
-                        VStack(spacing: 16) {
-                            // Background Type Picker
-                            Picker("Background Type", selection: $backgroundType) {
-                                Text("Map").tag(BackgroundType.map)
-                                Text("Gradient").tag(BackgroundType.gradient)
-                            }
-                            .pickerStyle(SegmentedPickerStyle())
-                            .padding(.horizontal)
-                            
-                            if backgroundType == .map {
-                                HStack {
-                                    Text("Map Style")
-                                        .foregroundColor(.white)
-                                    Spacer()
-                                    Picker("Map Style", selection: $mapStyle) {
-                                        Text("Default").tag(MapStyle.standard)
-                                        Text("Satellite").tag(MapStyle.satellite)
-                                        Text("Monotone").tag(MapStyle.muted)
-                                    }
-                                    .pickerStyle(MenuPickerStyle())
-                                    .accentColor(.white)
-                                }
-                                .padding(.horizontal)
-                                // Show toggle only if Muted is selected
-                                if mapStyle == .muted {
-                                    Toggle("Show Location Indicator", isOn: $showMutedLocationIndicator)
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal)
-                                }
-                            } else {
-                                VStack(spacing: 16) {
-                                    ColorPicker("Top Color", selection: Binding(
-                                        get: { gradientStartColor },
-                                        set: { newValue in
-                                            let uiColor = UIColor(newValue)
-                                            var red: CGFloat = 0
-                                            var green: CGFloat = 0
-                                            var blue: CGFloat = 0
-                                            var alpha: CGFloat = 0
-                                            uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-                                            gradientStartRed = Double(red)
-                                            gradientStartGreen = Double(green)
-                                            gradientStartBlue = Double(blue)
-                                        }
-                                    ))
-                                        .foregroundColor(.white)
-                                    ColorPicker("Bottom Color", selection: Binding(
-                                        get: { gradientEndColor },
-                                        set: { newValue in
-                                            let uiColor = UIColor(newValue)
-                                            var red: CGFloat = 0
-                                            var green: CGFloat = 0
-                                            var blue: CGFloat = 0
-                                            var alpha: CGFloat = 0
-                                            uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-                                            gradientEndRed = Double(red)
-                                            gradientEndGreen = Double(green)
-                                            gradientEndBlue = Double(blue)
-                                        }
-                                    ))
-                                        .foregroundColor(.white)
-                                }
-                                .padding(.horizontal)
-                            }
-                        }
-                        .padding(.vertical)
-                        .background(
-                            GlobalCardAppearance
-                        )
-                    }
-                    .padding(.horizontal)
-                    
-                    // Location Privacy Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("LOCATION PRIVACY")
-                            .font(.headline)
-                            .foregroundColor(.gray)
-                            .padding(.horizontal)
-                        
-                        VStack(spacing: 16) {
-                            Toggle("Track Distance Traveled", isOn: $locationTrackingEnabled)
-                                .foregroundColor(.white)
-                                .padding(.horizontal)
-                            
-                            Button(action: {
-                                showingDeleteConfirmation = true
-                            }) {
-                                Text("Delete All Distance Data")
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.white.opacity(0.12))
-                                    )
-                                    .glassEffect(.regular.tint(.red).interactive())
-                            }
-                            .padding(.horizontal)
-                        }
-                        .padding(.vertical)
-                        .background(
-                            GlobalCardAppearance
-                                
-                        )
-                    }
-                    .padding(.horizontal)
-                    
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .ignoresSafeArea()
-            .alert("Are you sure?", isPresented: $showingDeleteConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete", role: .destructive) {
-                    locationHandler.resetAllDistanceData()
-                }
-            } message: {
-                Text("This will completely reset all of your distance traveled data. It cannot be undone.")
-            }
-            
-            // Empty stack between content and buttons
-            ZStack {
-            }
-            .frame(height: 150)
-            .allowsHitTesting(false)
-            
-            // Fixed bottom controls
-            VStack {
-                Spacer()
-                HStack(spacing: 80) {
-                    Button(action: {
+                    },
+                    action: {
                         withAnimation(.easeInOut(duration: 0.5)) {
                             currentPage = .main
                         }
-                    }) {
-                        Image(systemName: "arrow.uturn.backward")
-                            .globalButtonStyle()
                     }
+                )
+            ]
+        ) {
+            VStack(spacing: 40) {
+                // SORT BY Section (now as vertical card-styled buttons)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("SORT BY")
+                            .font(.headline)
+                            .foregroundColor(.gray)
+                        Spacer()
+                        if showSortOrderText {
+                            Text(isSortChevronUp ? "Ascending" : "Descending")
+                                .foregroundColor(.gray)
+                                .transition(.opacity)
+                                .animation(.easeInOut(duration: 0.3), value: showSortOrderText)
+                        }
+                        Button(action: {
+                            isSortChevronUp.toggle()
+                            showSortOrderText = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                withAnimation {
+                                    showSortOrderText = false
+                                }
+                            }
+                        }) {
+                            Image(systemName: isSortChevronUp ? "chevron.up" : "chevron.down")
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .padding(.horizontal)
+                    VStack(spacing: 0) {
+                        ForEach(SortOption.orderedCases) { option in
+                            Button(action: {
+                                sortOption = option
+                            }) {
+                                HStack {
+                                    Text(option.rawValue)
+                                        .foregroundColor(.white)
+                                        .fontWeight(sortOption == option ? .bold : .regular)
+                                    Spacer()
+                                    if sortOption == option {
+                                        Image(systemName: "checkmark")
+                                            .foregroundColor(.white)
+                                            .fontWeight(.bold)
+                                    }
+                                }
+                                .padding()
+                            }
+                        }
+                    }
+                    .background(GlobalCardAppearance)
                     
-                    // Invisible button for layout balance
-                    //Button(action: {}) {
-                     //   Color.clear
-                         //   .frame(width: 50, height: 50)
-                   // }
-                   // .opacity(0)
                 }
                 .padding(.horizontal)
-                .padding(.bottom, 8)
-                .background(Color.clear)
+                
+                // Background Settings Section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("BACKGROUND")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                        .padding(.horizontal)
+                    
+                    VStack(spacing: 16) {
+                        // Background Type Picker
+                        Picker("Background Type", selection: $backgroundType) {
+                            Text("Map").tag(BackgroundType.map)
+                            Text("Gradient").tag(BackgroundType.gradient)
+                        }
+                        .pickerStyle(SegmentedPickerStyle())
+                        .padding(.horizontal)
+                        
+                        if backgroundType == .map {
+                            HStack {
+                                Text("Map Style")
+                                    .foregroundColor(.white)
+                                Spacer()
+                                Picker("Map Style", selection: $mapStyle) {
+                                    Text("Default").tag(MapStyle.standard)
+                                    Text("Satellite").tag(MapStyle.satellite)
+                                    Text("Monotone").tag(MapStyle.muted)
+                                }
+                                .pickerStyle(MenuPickerStyle())
+                                .accentColor(.white)
+                            }
+                            .padding(.horizontal)
+                            // Show toggle only if Muted is selected
+                            if mapStyle == .muted {
+                                Toggle("Show Location Indicator", isOn: $showMutedLocationIndicator)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal)
+                            }
+                        } else {
+                            VStack(spacing: 16) {
+                                ColorPicker("Top Color", selection: Binding(
+                                    get: { gradientStartColor },
+                                    set: { newValue in
+                                        let uiColor = UIColor(newValue)
+                                        var red: CGFloat = 0
+                                        var green: CGFloat = 0
+                                        var blue: CGFloat = 0
+                                        var alpha: CGFloat = 0
+                                        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+                                        gradientStartRed = Double(red)
+                                        gradientStartGreen = Double(green)
+                                        gradientStartBlue = Double(blue)
+                                    }
+                                ))
+                                    .foregroundColor(.white)
+                                ColorPicker("Bottom Color", selection: Binding(
+                                    get: { gradientEndColor },
+                                    set: { newValue in
+                                        let uiColor = UIColor(newValue)
+                                        var red: CGFloat = 0
+                                        var green: CGFloat = 0
+                                        var blue: CGFloat = 0
+                                        var alpha: CGFloat = 0
+                                        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+                                        gradientEndRed = Double(red)
+                                        gradientEndGreen = Double(green)
+                                        gradientEndBlue = Double(blue)
+                                    }
+                                ))
+                                    .foregroundColor(.white)
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+                    .padding(.vertical)
+                    .background(
+                        GlobalCardAppearance
+                    )
+                }
+                .padding(.horizontal)
+                
+                // Location Privacy Section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("LOCATION PRIVACY")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                        .padding(.horizontal)
+                    
+                    VStack(spacing: 16) {
+                        Toggle("Track Distance Traveled", isOn: $locationTrackingEnabled)
+                            .foregroundColor(.white)
+                            .padding(.horizontal)
+                        
+                        Button(action: {
+                            showingDeleteConfirmation = true
+                        }) {
+                            Text("Delete All Distance Data")
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.white.opacity(0.12))
+                                )
+                                .glassEffect(.regular.tint(.red).interactive())
+                        }
+                        .padding(.horizontal)
+                    }
+                    .padding(.vertical)
+                    .background(
+                        GlobalCardAppearance
+                            
+                    )
+                }
+                .padding(.horizontal)
             }
-            .ignoresSafeArea(.keyboard)
-            .zIndex(2)
+        }
+        .alert("Are you sure?", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                locationHandler.resetAllDistanceData()
+            }
+        } message: {
+            Text("This will completely reset all of your distance traveled data. It cannot be undone.")
         }
     }
 } 

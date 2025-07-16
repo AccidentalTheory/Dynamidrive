@@ -1,6 +1,4 @@
-//  ↓↓
-// READ <<<<<----- All elements of this page are found in ContentView.swift from line 875!! 😡😡😡😡😭😭😭😭🙏🙏🙏🙏🙏
-// ^^^^
+
 
 import SwiftUI
 import AVFoundation
@@ -38,88 +36,41 @@ struct CreatePage: View {
     // Add any other bindings needed for full functionality
 
     var body: some View {
-        ZStack {
-            ScrollView {
-                VStack(spacing: 40) {
-                    HStack {
-                        Text(createSoundtrackTitle)
-                            .font(.system(size: 35, weight: .medium))
-                            .foregroundColor(.white)
-                        Spacer()
-                        Button(action: {
-                            showInfoPage = true
-                        }) {
-                            Image(systemName: "info.circle")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white)
-                                .frame(width: 30, height: 30)
-                        }
+        PageLayout(
+            title: "Create New",
+            leftButtonAction: { /* TODO: Implement save/export action */ },
+            rightButtonAction: { showInfoPage = true },
+            leftButtonSymbol: "square.and.arrow.down",
+            rightButtonSymbol: "info",
+            bottomButtons: [
+                PageButton(label: { Image(systemName: "arrow.uturn.backward").globalButtonStyle() }, action: {
+                    pauseAllAudio()
+                    showCreatePage = false
+                }),
+                PageButton(label: { Image(systemName: "arrow.forward").globalButtonStyle() }, action: {
+                    if createBaseAudioURL != nil && createAdditionalZStacks.contains(where: { $0.audioURL != nil }) {
+                        showConfigurePage = true
+                    } else {
+                        UINotificationFeedbackGenerator().notificationOccurred(.error)
                     }
-                    VStack(spacing: 10) {
-                        baseAudioStack
-                        dynamicAudioStacks
-                        addAudioButton
-                    }
-                    Spacer().frame(height: 100)
+                }),
+                PageButton(label: {
+                    Image(systemName: "sparkles").globalButtonStyle()
+                }, action: {
+                    showAIUploadPage = true
+                    currentPage = .aiUpload
+                    previousPage = .create
+                })
+            ]
+        ) {
+            VStack(spacing: 40) {
+                VStack(spacing: 10) {
+                    baseAudioStack
+                    dynamicAudioStacks
+                    addAudioButton
                 }
-                .padding()
-                .offset(y: -15)
+                Spacer().frame(height: 100)
             }
-            VStack {
-                Spacer()
-                HStack(spacing: 80) {
-                    Button(action: {
-                        pauseAllAudio()
-                        showCreatePage = false
-                    }) {
-                        Image(systemName: "arrow.uturn.backward")
-                            .globalButtonStyle()
-                    }
-                    Button(action: {
-                        if createBaseAudioURL != nil && createAdditionalZStacks.contains(where: { $0.audioURL != nil }) {
-                            showConfigurePage = true
-                        } else {
-                            UINotificationFeedbackGenerator().notificationOccurred(.error)
-                        }
-                    }) {
-                        Image(systemName: "arrow.forward")
-                            .globalButtonStyle()
-                    }
-                    .opacity(createBaseAudioURL != nil && createAdditionalZStacks.contains(where: { $0.audioURL != nil }) ? 1.0 : 0.5)
-                    ZStack {
-                        Image("Gradient")
-                            .resizable()
-                            .scaledToFit()
-                            .opacity(1)
-                            .frame(width: 115, height: 115)
-                            .rotationEffect(.degrees(gradientRotation))
-                            .onAppear {
-                                gradientRotation = 0
-                                withAnimation(Animation.linear(duration: 10).repeatForever(autoreverses: false)) {
-                                    gradientRotation = 360
-                                }
-                            }
-                            .onDisappear {
-                                gradientRotation = 0
-                            }
-                        Button(action: {
-                            showAIUploadPage = true
-                            currentPage = .aiUpload
-                            previousPage = .create
-                        }) {
-                            Image(systemName: "sparkles")
-                                .globalButtonStyle()
-                        }
-                        .popoverTip(createTip, arrowEdge: .bottom)
-                    }
-                    .frame(width: 50, height: 50)
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-                .background(Color.clear)
-            }
-            .ignoresSafeArea(.keyboard)
-            .zIndex(2)
         }
         .sheet(isPresented: $showInfoPage) {
             infoPage()
@@ -183,6 +134,7 @@ struct CreatePage: View {
                 .gesture(baseAudioGesture)
         }
         .frame(height: 108)
+        .padding(.horizontal, PageLayoutConstants.cardHorizontalPadding)
     }
 
     private func baseAudioCard(geometry: GeometryProxy) -> some View {
@@ -283,6 +235,7 @@ struct CreatePage: View {
                     .gesture(dynamicAudioGesture(index: index))
             }
             .frame(height: 108)
+            .padding(.horizontal, PageLayoutConstants.cardHorizontalPadding)
         }
     }
 

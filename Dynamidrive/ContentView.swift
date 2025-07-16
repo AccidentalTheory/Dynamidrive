@@ -270,6 +270,7 @@ struct Soundtrack: Identifiable, Codable {
     let id: UUID
     let title: String
     let tracks: [AudioController.SoundtrackData]
+    let cardColor: Color
     var players: [AVAudioPlayer?] {
         didSet {
             for player in players {
@@ -285,6 +286,7 @@ struct Soundtrack: Identifiable, Codable {
         case id
         case title
         case tracks
+        case cardColor
     }
     
     // Custom initializer for decoding
@@ -293,6 +295,7 @@ struct Soundtrack: Identifiable, Codable {
         self.id = try container.decode(UUID.self, forKey: .id)
         self.title = try container.decode(String.self, forKey: .title)
         self.tracks = try container.decode([AudioController.SoundtrackData].self, forKey: .tracks)
+        self.cardColor = try container.decode(Color.self, forKey: .cardColor)
         self.players = [] // Initialize as empty; will be set during loadSoundtracks
     }
     
@@ -302,15 +305,17 @@ struct Soundtrack: Identifiable, Codable {
         try container.encode(id, forKey: .id)
         try container.encode(title, forKey: .title)
         try container.encode(tracks, forKey: .tracks)
+        try container.encode(cardColor, forKey: .cardColor)
         // players is not encoded
     }
     
     // Convenience initializer for creating a new Soundtrack
-    init(id: UUID, title: String, tracks: [AudioController.SoundtrackData], players: [AVAudioPlayer?]) {
+    init(id: UUID, title: String, tracks: [AudioController.SoundtrackData], players: [AVAudioPlayer?], cardColor: Color = .clear) {
         self.id = id
         self.title = title
         self.tracks = tracks
         self.players = players
+        self.cardColor = cardColor
     }
 }
 
@@ -335,7 +340,8 @@ extension Soundtrack: Equatable {
     static func == (lhs: Soundtrack, rhs: Soundtrack) -> Bool {
         return lhs.id == rhs.id &&
                lhs.title == rhs.title &&
-               lhs.tracks == rhs.tracks
+               lhs.tracks == rhs.tracks &&
+               lhs.cardColor == rhs.cardColor
     }
 }
 
@@ -489,6 +495,7 @@ struct ContentView: View {
     @State private var animateCards: Bool = false // Start invisible
     @State private var hasAnimatedOnce: Bool = false
     @State private var wasPlaybackSheetOpenForSpeedDetail: Bool = false // Track if playback sheet was open before speed detail
+    @State private var selectedCardColor: Color = .clear // New state for card color selection
     
     // MARK: Gauge Settings
     @AppStorage("portraitGaugeStyle") private var portraitGaugeStyle: String = "fullCircle" // "fullCircle" or "separatedArc"
@@ -707,8 +714,17 @@ struct ContentView: View {
                                 .environmentObject(locationHandler)
                                 .transition(.asymmetric(
                                     insertion: .move(edge: .trailing),
-                                    removal: .move(edge: .trailing)
+                                    removal: previousPage == .layout ? .move(edge: .trailing) : .move(edge: .leading)
                                 ))
+                        case .layout:
+                            LayoutPage(showingLayoutPage: Binding(
+                                get: { currentPage == .layout },
+                                set: { show in if !show { currentPage = .masterSettings } }
+                            ))
+                            .transition(.asymmetric(
+                                insertion: previousPage == .masterSettings ? .move(edge: .trailing) : .move(edge: .leading),
+                                removal: .move(edge: .leading)
+                            ))
                         }
                     }
                     .zIndex(9)
@@ -1016,6 +1032,7 @@ struct ContentView: View {
             createAudio5MaximumSpeed: $createAudio5MaximumSpeed,
             createSoundtrackTitle: $createSoundtrackTitle,
             createBaseTitle: $createBaseTitle,
+            selectedCardColor: $selectedCardColor,
             handleDoneAction: handleDoneAction
         )
     }
@@ -1631,7 +1648,8 @@ struct ContentView: View {
                 loadedSoundtracks[i] = Soundtrack(id: loadedSoundtracks[i].id,
                                                   title: loadedSoundtracks[i].title,
                                                   tracks: tracks,
-                                                  players: players)
+                                                  players: players,
+                                                  cardColor: loadedSoundtracks[i].cardColor)
             }
             
             soundtracks = loadedSoundtracks
@@ -1911,11 +1929,12 @@ struct ContentView: View {
         }
         
         // Append the new soundtrack with the unique title
-        soundtracks.append(Soundtrack(id: UUID(), title: newTitle, tracks: tracks, players: players))
+        soundtracks.append(Soundtrack(id: UUID(), title: newTitle, tracks: tracks, players: players, cardColor: selectedCardColor))
         pauseAllAudio()
         
         // Reset state before animation
         resetCreatePage()
+        selectedCardColor = .clear // Reset color selection
         
         // Navigate back to mainScreen
         withAnimation(.easeInOut(duration: 0.5)) {
@@ -2095,7 +2114,8 @@ struct ContentView: View {
                 id: UUID(),
                 title: soundtrackTitle,
                 tracks: tracks,
-                players: players
+                players: players,
+                cardColor: .clear
             )
             
             soundtracks.append(newSoundtrack)
@@ -2767,6 +2787,36 @@ struct MeshGradientView: View {
                 colorPhases[4] += 0.011  // Bottom
             }
         }
+    }
+}
+
+// MARK: - Color Codable Extension
+extension Color: Codable {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let red = try container.decode(Double.self, forKey: .red)
+        let green = try container.decode(Double.self, forKey: .green)
+        let blue = try container.decode(Double.self, forKey: .blue)
+        let opacity = try container.decode(Double.self, forKey: .opacity)
+        self.init(red: red, green: green, blue: blue, opacity: opacity)
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        let uiColor = UIColor(self)
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        try container.encode(Double(red), forKey: .red)
+        try container.encode(Double(green), forKey: .green)
+        try container.encode(Double(blue), forKey: .blue)
+        try container.encode(Double(alpha), forKey: .opacity)
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case red, green, blue, opacity
     }
 }
 

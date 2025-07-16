@@ -31,6 +31,7 @@ struct MainScreen: View {
     
     @State private var showWelcomeScreen = false
     @State private var showLocationDeniedView = false
+    @State private var showPlusMenu = false
     
     // Add state to track if content is scrolled
     @State private var isScrolled = false
@@ -78,7 +79,36 @@ struct MainScreen: View {
     }
     
     var body: some View {
-        ZStack {
+        PageLayout(
+            title: "Dynamidrive",
+            leftButtonAction: {
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    currentPage = .masterSettings
+                }
+            },
+            rightButtonAction: {
+                let impact = UIImpactFeedbackGenerator(style: .medium)
+                impact.impactOccurred()
+                isMainScreenEditMode.toggle()
+            },
+            leftButtonSymbol: "gear",
+            rightButtonSymbol: isMainScreenEditMode ? "checkmark" : "minus.circle",
+            bottomButtons: [
+                PageButton(label: {
+                    Image(systemName: "plus").globalButtonStyle()
+                }, action: {
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        resetCreatePage()
+                        showCreatePage = true
+                        showImportPage = false
+                        importedSoundtrackURL = nil
+                        currentPage = .create
+                    }
+                })
+            ],
+            verticalPadding: 0,
+            useCustomFont: true
+        ) {
             Group {
                 VStack(spacing: 40) {
                     if soundtracks.isEmpty {
@@ -117,20 +147,8 @@ struct MainScreen: View {
                         Spacer()
                         Spacer()
                     } else {
-                        // ScrollView with scroll detection
                         ScrollViewReader { scrollProxy in
                             ScrollView(.vertical, showsIndicators: false) {
-                                GeometryReader { geo in
-                                    Color.clear
-                                        .frame(height: 0)
-                                        .onChange(of: geo.frame(in: .named("scroll")).minY) { value in
-                                            // If scrolled down, set isScrolled to true
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                isScrolled = value < -8 // adjust threshold as needed
-                                            }
-                                        }
-                                }
-                                .frame(height: 0)
                                 VStack(spacing: 14) {
                                     Color.clear.frame(height: UIScreen.main.bounds.height * 0.08)
                                     ForEach(sortedSoundtracks.indices, id: \ .self) { index in
@@ -140,133 +158,17 @@ struct MainScreen: View {
                                             soundtrackCard(soundtrack: soundtrack, index: index, delay: delay)
                                         }
                                         .frame(height: 108)
-                                        .padding(.horizontal)
+                                        .padding(.horizontal, PageLayoutConstants.cardHorizontalPadding)
                                     }
                                 }
                                 .animation(.easeInOut(duration: 0.3), value: soundtracks)
                                 .padding(.bottom, 100)
                             }
-                            .coordinateSpace(name: "scroll")
                             .frame(maxWidth: .infinity)
                         }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-
-            // Gradient behind header
-            VStack {
-                LinearGradient(
-                    gradient: Gradient(stops: [
-                        .init(color: Color.black.opacity(0.6), location: 0.0),
-                        .init(color: Color.black.opacity(0.6), location: 0.35),
-                        .init(color: Color.clear, location: 1.0)
-                    ]),
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 220)
-                .opacity(isScrolled ? 1 : 0)
-                .animation(.easeInOut(duration: 0.2), value: isScrolled)
-                Spacer()
-            }
-            .allowsHitTesting(false)
-            .ignoresSafeArea(edges: .top)
-
-            VStack {
-                HStack {
-                    if animateCards {
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.5)) {
-                                currentPage = .masterSettings
-                            }
-                        }) {
-                            Image(systemName: "gear")
-                                .globalButtonStyle()
-                        }
-                        .glassEffectTransition(.materialize)
-                    }
-                    Spacer()
-                    if animateCards {
-                        Text("Dynamidrive")
-                            .font(.ppNeueMachina(size: 25))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [
-                                        .white,
-                                        Color(red: 1, green: 1, blue: 1, opacity: 0.392)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                            .glassEffectTransition(.materialize)
-                    }
-                    Spacer()
-                    if animateCards {
-                        Button(action: {
-                            let impact = UIImpactFeedbackGenerator(style: .medium)
-                            impact.impactOccurred()
-                            isMainScreenEditMode.toggle()
-                        }) {
-                            Image(systemName: isMainScreenEditMode ? "checkmark" : "minus.circle")
-                                .globalButtonStyle()
-                        }
-                        .disabled(!hasGrantedLocationPermission)
-                        .simultaneousGesture(TapGesture().onEnded {
-                            if !hasGrantedLocationPermission {
-                                let generator = UINotificationFeedbackGenerator()
-                                generator.notificationOccurred(.error)
-                            }
-                        })
-                        .glassEffectTransition(.materialize)
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.top, UIScreen.main.bounds.height * 0.01)
-                Spacer()
-            }
-            
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    if animateCards {
-                        Menu {
-                            Button(action: {
-                                withAnimation(.easeInOut(duration: 0.5)) {
-                                    showImportPage = true
-                                    showCreatePage = false
-                                    currentPage = .create
-                                }
-                            }) {
-                                Label("Import Existing (Coming Soon)", systemImage: "square.and.arrow.down")
-                                    .foregroundColor(.gray)
-                            }
-                            .disabled(true)
-                            
-                            Button(action: {
-                                withAnimation(.easeInOut(duration: 0.5)) {
-                                    resetCreatePage()
-                                    showCreatePage = true
-                                    showImportPage = false
-                                    importedSoundtrackURL = nil
-                                    currentPage = .create
-                                }
-                            }) {
-                                Label("Create New...", systemImage: "plus")
-                            }
-                        } label: {
-                            Image(systemName: "plus")
-                                .globalButtonStyle()
-                        }
-                        .disabled(!hasGrantedLocationPermission)
-                        .glassEffectTransition(.materialize)
-                    }
-                    Spacer()
-                }
-                .padding(.bottom, 12)
             }
         }
         .sheet(isPresented: $showWelcomeScreen) {
@@ -293,7 +195,10 @@ struct MainScreen: View {
     
     private func soundtrackCard(soundtrack: Soundtrack, index: Int, delay: Double) -> some View {
         ZStack {
-            GlobalCardAppearance
+            Rectangle()
+                .fill(.clear)
+                .cornerRadius(20)
+                .glassEffect(.regular.tint(soundtrack.cardColor == .clear ? .clear : soundtrack.cardColor).interactive(), in: .rect(cornerRadius: 20.0))
             
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -316,7 +221,7 @@ struct MainScreen: View {
                             if locationTrackingEnabled {
                                 let miles = locationHandler.soundtrackDistances[soundtrack.id] ?? 0.0
                                 Text("Distance Played: \(Int(miles)) mi")
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(.white)
                                     .font(.system(size: 16, weight: .medium))
                             }
                         }
@@ -341,8 +246,13 @@ struct MainScreen: View {
                             audioController.toggleSoundtrackPlayback()
                         }
                     }) {
-                        Image(systemName: isCurrentAndPlaying ? "pause.fill" : "play.fill")
-                            .CardButtonStyle()
+                        if soundtrack.cardColor == .clear {
+                            Image(systemName: isCurrentAndPlaying ? "pause.fill" : "play.fill")
+                                .globalButtonStyle()
+                        } else {
+                            Image(systemName: isCurrentAndPlaying ? "pause.fill" : "play.fill")
+                                .CardButtonStyle()
+                        }
                     }
                 } else {
                     Button(action: {

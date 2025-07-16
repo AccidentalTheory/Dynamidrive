@@ -39,7 +39,7 @@ struct PlaybackPage: View {
             return []
         }
         
-        let soundtrack = pendingSoundtrack ?? Soundtrack(id: UUID(), title: audioController.currentSoundtrackTitle, tracks: audioController.currentTracks, players: audioController.currentPlayers)
+        let soundtrack = pendingSoundtrack ?? Soundtrack(id: UUID(), title: audioController.currentSoundtrackTitle, tracks: audioController.currentTracks, players: audioController.currentPlayers, cardColor: .clear)
         
         let soundtrackFolder = documentsDirectory.appendingPathComponent(soundtrack.title)
         try? fileManager.createDirectory(at: soundtrackFolder, withIntermediateDirectories: true, attributes: nil)
