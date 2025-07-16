@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import UIKit
 
 struct MasterSettings: View {
     @Binding var currentPage: AppPage
@@ -89,7 +90,9 @@ struct MasterSettings: View {
             VStack {
                 HStack {
                     Button(action: {
-                        // Globe button action (can be filled in later)
+                        if let url = URL(string: "https://Dynamidrive.App") {
+                            UIApplication.shared.open(url)
+                        }
                     }) {
                         Image(systemName: "globe")
                             .globalButtonStyle()
