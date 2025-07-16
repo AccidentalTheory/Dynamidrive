@@ -26,6 +26,8 @@ struct MainScreen: View {
     @AppStorage("locationTrackingEnabled") private var locationTrackingEnabled: Bool = true
     @AppStorage("hasSeenWelcomeScreen") private var hasSeenWelcomeScreen = false
     @AppStorage("hasGrantedLocationPermission") private var hasGrantedLocationPermission = false
+    @AppStorage("sortOption") private var sortOptionRaw: String = "Creation Date"
+    @AppStorage("isSortChevronUp") private var isSortChevronUp: Bool = false
     
     @State private var showWelcomeScreen = false
     @State private var showLocationDeniedView = false
@@ -37,6 +39,43 @@ struct MainScreen: View {
     
     var resetCreatePage: () -> Void
     var deleteSoundtrack: (Soundtrack) -> Void
+
+    // Helper to get the selected sort option
+    private var sortOption: SortOption {
+        SortOption(rawValue: sortOptionRaw) ?? .creationDate
+    }
+
+    // Sorted soundtracks based on the selected sort option
+    private var sortedSoundtracks: [Soundtrack] {
+        switch sortOption {
+        case .creationDate:
+            // Assuming the array is already in creation order (oldest first)
+            let arr = soundtracks
+            return isSortChevronUp ? arr.reversed() : arr
+        case .name:
+            let arr = soundtracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            return isSortChevronUp ? arr.reversed() : arr
+        case .distancePlayed:
+            let arr = soundtracks.sorted {
+                let d0 = locationHandler.soundtrackDistances[$0.id] ?? 0.0
+                let d1 = locationHandler.soundtrackDistances[$1.id] ?? 0.0
+                return d0 > d1
+            }
+            return isSortChevronUp ? arr.reversed() : arr
+        case .amountOfTracks:
+            let arr = soundtracks.sorted { $0.tracks.count > $1.tracks.count }
+            return isSortChevronUp ? arr.reversed() : arr
+        }
+    }
+
+    // SortOption enum (should match MasterSettings)
+    enum SortOption: String, CaseIterable, Identifiable {
+        case creationDate = "Creation Date"
+        case name = "Name"
+        case distancePlayed = "Distance Played"
+        case amountOfTracks = "Amount of tracks"
+        var id: String { self.rawValue }
+    }
     
     var body: some View {
         ZStack {
@@ -94,8 +133,8 @@ struct MainScreen: View {
                                 .frame(height: 0)
                                 VStack(spacing: 14) {
                                     Color.clear.frame(height: UIScreen.main.bounds.height * 0.08)
-                                    ForEach(soundtracks.indices, id: \.self) { index in
-                                        let soundtrack = soundtracks[index]
+                                    ForEach(sortedSoundtracks.indices, id: \ .self) { index in
+                                        let soundtrack = sortedSoundtracks[index]
                                         let delay = cardAnimationDelay + Double(index) * 0.1
                                         InViewScrollEffect(triggerArea: 1, blur: 10, scale: 0.66) {
                                             soundtrackCard(soundtrack: soundtrack, index: index, delay: delay)
@@ -287,6 +326,7 @@ struct MainScreen: View {
                     .buttonStyle(PlainButtonStyle())
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .id(locationHandler.soundtrackDistances[soundtrack.id] ?? 0.0)
                 
                 if !isMainScreenEditMode {
                     let isCurrentAndPlaying = audioController.isSoundtrackPlaying && audioController.currentSoundtrackTitle == soundtrack.title

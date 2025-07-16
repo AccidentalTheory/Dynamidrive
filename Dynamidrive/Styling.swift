@@ -74,6 +74,46 @@ extension View {
     }
 }
 
+
+// MARK: HEADERS
+
+//ZStack {
+//    // THis is outside the scrollable content
+//    VStack {
+//        HStack {
+//            Button(action: {
+//               Left Button action (can be filled in later)
+//            }) {
+//                Image(systemName: "SF SYMBOL")
+//                    .globalButtonStyle()
+//            }
+//            Spacer()
+//            Text("PAGE TITLE")
+//                .font(.system(size: 35, weight: .medium))
+//                .foregroundColor(.white)
+//                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+//            Spacer()
+//
+//            Button(action: {
+//                Right Button action (can be filled in later)
+//            }) {
+//                Image(systemName: "SF SYMBOL")
+//                    .globalButtonStyle()
+//            }
+//        }
+//        .padding(.horizontal)
+//        .padding(.top, UIScreen.main.bounds.height * 0.01)
+//        Spacer()
+//    }
+//    .frame(maxWidth: .infinity, alignment: .top)
+//    .zIndex(2)
+//
+//
+
+
+
+
+
 //MARK: Liquid Glass Elements. NOTE: use this as a modifier, don't recreate!
 
 // .glassEffect(.regular.tint(.clear).interactive())
