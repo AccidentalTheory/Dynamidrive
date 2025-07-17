@@ -77,11 +77,12 @@ struct MasterSettings: View {
         case name = "Name"
         case distancePlayed = "Distance Played"
         case amountOfTracks = "Amount of tracks"
+        case color = "Color" // Added for color sorting
         
         var id: String { self.rawValue }
         
         static var orderedCases: [SortOption] {
-            [.creationDate, .name, .distancePlayed, .amountOfTracks]
+            [.creationDate, .name, .distancePlayed, .amountOfTracks, .color] // Added color
         }
     }
     

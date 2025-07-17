@@ -156,9 +156,15 @@ struct CreatePage: View {
                     toggleBasePlayback()
                 }
             }) {
-                Image(systemName: createBaseAudioURL == nil ? "document.badge.plus.fill" : (createBaseIsPlaying ? "pause.fill" : "play.fill"))
-                    .globalButtonStyle()
-                    .offset(x: createBaseAudioURL == nil ? 1.5 : 0)
+                if createBaseAudioURL == nil {
+                    Image(systemName: "document.badge.plus.fill")
+                        .offset(x: 1.5)
+                        .globalButtonStyle()
+                        
+                } else {
+                    Image(systemName: createBaseIsPlaying ? "pause.fill" : "play.fill")
+                        .globalButtonStyle()
+                }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.trailing, 20)
@@ -206,17 +212,20 @@ struct CreatePage: View {
             if let storedURL = storeAudioFile(url, name: "Soundtrack\(soundtracks.count + 1)Base_\(UUID().uuidString)") {
                 if let tempPlayer = try? AVAudioPlayer(contentsOf: storedURL) {
                     let duration = tempPlayer.duration
+                    let fileName = url.deletingPathExtension().lastPathComponent
                     if createReferenceLength == nil || createAdditionalZStacks.isEmpty {
                         createReferenceLength = duration
                         createBaseAudioURL = storedURL
                         createBasePlayer = tempPlayer
                         createBasePlayer?.volume = mapVolume(createBaseVolume)
                         createBasePlayer?.prepareToPlay()
+                        createBaseTitle = fileName // Set base title to file name
                     } else if abs(duration - createReferenceLength!) < 0.1 {
                         createBaseAudioURL = storedURL
                         createBasePlayer = tempPlayer
                         createBasePlayer?.volume = mapVolume(createBaseVolume)
                         createBasePlayer?.prepareToPlay()
+                        createBaseTitle = fileName // Set base title to file name
                     } else {
                         removeAudioFile(at: storedURL)
                         showLengthMismatchAlert = true
@@ -258,9 +267,15 @@ struct CreatePage: View {
                     togglePlayback(at: index)
                 }
             }) {
-                Image(systemName: createAdditionalZStacks[index].audioURL == nil ? "document.badge.plus.fill" : (createAdditionalZStacks[index].isPlaying ? "pause.fill" : "play.fill"))
-                    .globalButtonStyle()
-                    .offset(x: createBaseAudioURL == nil ? 1.5 : 0)
+                if createAdditionalZStacks[index].audioURL == nil {
+                    Image(systemName: "document.badge.plus.fill")
+                        .offset(x: 1.5)
+                        .globalButtonStyle()
+                        
+                } else {
+                    Image(systemName: createAdditionalZStacks[index].isPlaying ? "pause.fill" : "play.fill")
+                        .globalButtonStyle()
+                }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.trailing, 20)
@@ -310,6 +325,7 @@ struct CreatePage: View {
             if let storedURL = storeAudioFile(url, name: "Soundtrack\(soundtracks.count + 1)Audio\(index + 1)_\(UUID().uuidString)") {
                 if let tempPlayer = try? AVAudioPlayer(contentsOf: storedURL) {
                     let duration = tempPlayer.duration
+                    let fileName = url.deletingPathExtension().lastPathComponent
                     if createReferenceLength == nil || abs(duration - createReferenceLength!) < 0.1 {
                         createAdditionalZStacks[index].audioURL = storedURL
                         createAdditionalZStacks[index].player = tempPlayer
@@ -317,6 +333,9 @@ struct CreatePage: View {
                         createAdditionalZStacks[index].player?.prepareToPlay()
                         if createReferenceLength == nil {
                             createReferenceLength = duration
+                        }
+                        if index < createAdditionalTitles.count {
+                            createAdditionalTitles[index] = fileName // Set dynamic title to file name
                         }
                     } else {
                         removeAudioFile(at: storedURL)
@@ -359,25 +378,130 @@ struct CreatePage: View {
         }
     }
 
+    private func pauseAllPreviewAudio() {
+        if createBaseIsPlaying, let player = createBasePlayer {
+            player.pause()
+            createBaseIsPlaying = false
+        }
+        for index in createAdditionalZStacks.indices {
+            if createAdditionalZStacks[index].isPlaying, let player = createAdditionalZStacks[index].player {
+                player.pause()
+                createAdditionalZStacks[index].isPlaying = false
+            }
+        }
+    }
+
+    private func getAllPlayingPreviewPlayers() -> [(player: AVAudioPlayer, isBase: Bool, index: Int?)] {
+        var result: [(AVAudioPlayer, Bool, Int?)] = []
+        if createBaseIsPlaying, let player = createBasePlayer {
+            result.append((player, true, nil))
+        }
+        for (i, zstack) in createAdditionalZStacks.enumerated() {
+            if zstack.isPlaying, let player = zstack.player {
+                result.append((player, false, i))
+            }
+        }
+        return result
+    }
+
+    private func syncAndPlayAllPreviews(syncTime: TimeInterval, exceptBase: Bool? = nil, exceptIndex: Int? = nil) {
+        // Set all preview players' currentTime to syncTime and play
+        if exceptBase != true, let player = createBasePlayer {
+            player.currentTime = syncTime
+            player.play()
+            createBaseIsPlaying = true
+        }
+        for (i, zstack) in createAdditionalZStacks.enumerated() {
+            if exceptIndex == nil || exceptIndex != i, let player = zstack.player {
+                createAdditionalZStacks[i].player?.currentTime = syncTime
+                createAdditionalZStacks[i].player?.play()
+                createAdditionalZStacks[i].isPlaying = true
+            }
+        }
+    }
+
+    private func playAndSyncPreviews(startingIndex: Int?, isBase: Bool) {
+        // Gather all preview tracks that were playing, plus the one just started
+        var indicesToPlay: [Int] = []
+        var shouldPlayBase = false
+        var times: [TimeInterval] = []
+        if isBase {
+            shouldPlayBase = true
+            if let basePlayer = createBasePlayer {
+                times.append(basePlayer.currentTime)
+            }
+        } else if let idx = startingIndex {
+            indicesToPlay.append(idx)
+            if let player = createAdditionalZStacks[idx].player {
+                times.append(player.currentTime)
+            }
+        }
+        // Add all other preview tracks that were playing
+        if createBaseIsPlaying && !isBase {
+            shouldPlayBase = true
+            if let basePlayer = createBasePlayer {
+                times.append(basePlayer.currentTime)
+            }
+        }
+        for (i, zstack) in createAdditionalZStacks.enumerated() {
+            if zstack.isPlaying && (!isBase || i != startingIndex) {
+                indicesToPlay.append(i)
+                if let player = zstack.player {
+                    times.append(player.currentTime)
+                }
+            }
+        }
+        // Pause all previews
+        pauseAllPreviewAudio()
+        // Find the farthest currentTime
+        let maxTime = times.max() ?? 0
+        // Set all to maxTime
+        if shouldPlayBase, let basePlayer = createBasePlayer {
+            basePlayer.currentTime = maxTime
+        }
+        for i in indicesToPlay {
+            if let player = createAdditionalZStacks[i].player {
+                player.currentTime = maxTime
+            }
+        }
+        // Resume all
+        if shouldPlayBase, let basePlayer = createBasePlayer {
+            basePlayer.play()
+            createBaseIsPlaying = true
+        }
+        for i in indicesToPlay {
+            if let player = createAdditionalZStacks[i].player {
+                player.play()
+                createAdditionalZStacks[i].isPlaying = true
+            }
+        }
+    }
+
     private func toggleBasePlayback() {
         guard let player = createBasePlayer else { return }
+        // Pause main soundtrack if playing
+        if audioController.isSoundtrackPlaying {
+            audioController.toggleSoundtrackPlayback()
+        }
         if createBaseIsPlaying {
             player.pause()
             createBaseIsPlaying = false
         } else {
-            player.play()
-            createBaseIsPlaying = true
+            playAndSyncPreviews(startingIndex: nil, isBase: true)
         }
     }
 
     private func togglePlayback(at index: Int) {
         guard let player = createAdditionalZStacks[index].player else { return }
+        // Pause main soundtrack if playing
+        if audioController.isSoundtrackPlaying {
+            audioController.toggleSoundtrackPlayback()
+        }
         if createAdditionalZStacks[index].isPlaying {
             player.pause()
             createAdditionalZStacks[index].isPlaying = false
         } else {
-            player.play()
-            createAdditionalZStacks[index].isPlaying = true
+            playAndSyncPreviews(startingIndex: index, isBase: false)
         }
     }
 

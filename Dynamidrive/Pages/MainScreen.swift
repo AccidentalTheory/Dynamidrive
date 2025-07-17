@@ -46,6 +46,42 @@ struct MainScreen: View {
         SortOption(rawValue: sortOptionRaw) ?? .creationDate
     }
 
+    // Helper to map a Color to a rainbow order index
+    private func rainbowOrderIndex(for color: Color) -> Int {
+        // Define a fixed rainbow order: Red, Orange, Yellow, Green, Blue, Indigo, Violet, Clear, Other
+        // You may need to adjust the RGB values to match your app's color palette
+        let rainbow: [(name: String, color: Color)] = [
+            ("Red", Color.red),
+            ("Orange", Color.orange),
+            ("Yellow", Color.yellow),
+            ("Green", Color.green),
+            ("Blue", Color.blue),
+            ("Indigo", Color(red: 75/255, green: 0, blue: 130/255)),
+            ("Violet", Color.purple),
+            ("Clear", Color.clear)
+        ]
+        // Find the closest color in the rainbow array
+        func colorDistance(_ c1: Color, _ c2: Color) -> Double {
+            let ui1 = UIColor(c1)
+            let ui2 = UIColor(c2)
+            var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+            var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+            ui1.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+            ui2.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+            return pow(Double(r1 - r2), 2) + pow(Double(g1 - g2), 2) + pow(Double(b1 - b2), 2)
+        }
+        var minIndex = rainbow.count // Default to "Other"
+        var minDistance = Double.greatestFiniteMagnitude
+        for (i, entry) in rainbow.enumerated() {
+            let dist = colorDistance(color, entry.color)
+            if dist < minDistance {
+                minDistance = dist
+                minIndex = i
+            }
+        }
+        return minIndex
+    }
+
     // Sorted soundtracks based on the selected sort option
     private var sortedSoundtracks: [Soundtrack] {
         switch sortOption {
@@ -66,15 +102,21 @@ struct MainScreen: View {
         case .amountOfTracks:
             let arr = soundtracks.sorted { $0.tracks.count > $1.tracks.count }
             return isSortChevronUp ? arr.reversed() : arr
+        case .color:
+            let arr = soundtracks.sorted {
+                rainbowOrderIndex(for: $0.cardColor) < rainbowOrderIndex(for: $1.cardColor)
+            }
+            return isSortChevronUp ? arr.reversed() : arr
         }
     }
-
+    
     // SortOption enum (should match MasterSettings)
     enum SortOption: String, CaseIterable, Identifiable {
         case creationDate = "Creation Date"
         case name = "Name"
         case distancePlayed = "Distance Played"
         case amountOfTracks = "Amount of tracks"
+        case color = "Color" // Added for color sorting
         var id: String { self.rawValue }
     }
     
