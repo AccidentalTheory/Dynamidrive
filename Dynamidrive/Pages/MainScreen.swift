@@ -151,44 +151,9 @@ struct MainScreen: View {
             verticalPadding: 0,
             useCustomFont: true
         ) {
-            Group {
+            ZStack(alignment: .center) {
                 VStack(spacing: 40) {
-                    if soundtracks.isEmpty {
-                        Spacer()
-                        if hasGrantedLocationPermission {
-                            VStack(spacing: 0) {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 160))
-                                    .foregroundColor(.white)
-                                    .opacity(0.4)
-                                    .frame(width: 180, height: 180)
-                                Text("Press the new button to make your first soundtrack")
-                                    .font(.system(size: 24, weight: .medium))
-                                    .foregroundColor(.white)
-                                    .opacity(0.4)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.horizontal)
-                        } else {
-                            VStack(spacing: 20) {
-                                Button(action: {
-                                    showLocationDeniedView = true
-                                }) {
-                                    Image(systemName: "location.slash.fill")
-                                        .font(.system(size: 160))
-                                        .foregroundColor(.white)
-                                        .opacity(0.4)
-                                        .frame(width: 180, height: 180)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.horizontal)
-                            .padding(.top, 80)
-                        }
-                        Spacer()
-                        Spacer()
-                    } else {
+                    if !soundtracks.isEmpty {
                         ScrollViewReader { scrollProxy in
                             ScrollView(.vertical, showsIndicators: false) {
                                 VStack(spacing: 14) {
@@ -211,6 +176,40 @@ struct MainScreen: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if soundtracks.isEmpty {
+                    VStack {
+                        if hasGrantedLocationPermission {
+                            VStack(spacing: 0) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 160))
+                                    .foregroundColor(.white)
+                                    .opacity(0.4)
+                                    .frame(width: 180, height: 180)
+                                Text("Press the new button to make your first soundtrack")
+                                    .font(.system(size: 24, weight: .medium))
+                                    .foregroundColor(.white)
+                                    .opacity(0.4)
+                                    .multilineTextAlignment(.center)
+                            }
+                        } else {
+                            VStack(spacing: 20) {
+                                Button(action: {
+                                    showLocationDeniedView = true
+                                }) {
+                                    Image(systemName: "location.slash.fill")
+                                        .font(.system(size: 160))
+                                        .foregroundColor(.white)
+                                        .opacity(0.4)
+                                        .frame(width: 180, height: 180)
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .contentShape(Rectangle())
+                    .padding(.horizontal)
+                    .offset(y: 180)
+                }
             }
         }
         .sheet(isPresented: $showWelcomeScreen) {
@@ -231,6 +230,18 @@ struct MainScreen: View {
                         showLocationDeniedView = true
                     }
                 }
+            }
+        }
+        .onAppear {
+            if !hasGrantedLocationPermission {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    showLocationDeniedView = true
+                }
+            }
+        }
+        .onChange(of: hasGrantedLocationPermission) { newValue in
+            if !newValue {
+                showLocationDeniedView = true
             }
         }
     }
@@ -265,6 +276,7 @@ struct MainScreen: View {
                                 Text("Distance Played: \(Int(miles)) mi")
                                     .foregroundColor(.white)
                                     .font(.system(size: 16, weight: .medium))
+                                    .animation(.default, value: miles)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)

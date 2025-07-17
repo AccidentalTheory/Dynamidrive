@@ -2605,6 +2605,16 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
             print("Started location updates with desired accuracy: BestForNavigation")
         }
     }
+    
+    // Add this method to sync permission state
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        if status == .authorizedAlways || status == .authorizedWhenInUse {
+            hasGrantedLocationPermission = true
+        } else {
+            hasGrantedLocationPermission = false
+        }
+    }
 }
 
 
