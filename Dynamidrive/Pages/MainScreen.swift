@@ -36,6 +36,11 @@ struct MainScreen: View {
     // Add state to track if content is scrolled
     @State private var isScrolled = false
     
+    @Namespace private var cardNamespace
+    @State private var previousOrder: [UUID] = []
+    @State private var movingUpId: UUID? = nil
+    @State private var movingDownId: UUID? = nil
+    
     var cardAnimationDelay: Double = 0
     
     var resetCreatePage: () -> Void
@@ -238,6 +243,38 @@ struct MainScreen: View {
                     showLocationDeniedView = true
                 }
             }
+            previousOrder = sortedSoundtracks.map { $0.id }
+        }
+        .onChange(of: sortedSoundtracks.map { $0.id }) { newOrder in
+            // Detect which card moved up and which moved down
+            let old = previousOrder
+            let new = newOrder
+            if old != new {
+                for (i, id) in new.enumerated() {
+                    if let oldIndex = old.firstIndex(of: id), oldIndex != i {
+                        if oldIndex > i {
+                            // Card moved up
+                            movingUpId = id
+                            if i+1 < new.count {
+                                movingDownId = new[i+1]
+                            }
+                        } else if oldIndex < i {
+                            // Card moved down
+                            movingDownId = id
+                            if i-1 >= 0 {
+                                movingUpId = new[i-1]
+                            }
+                        }
+                        break
+                    }
+                }
+            }
+            previousOrder = newOrder
+            // Reset after animation
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                movingUpId = nil
+                movingDownId = nil
+            }
         }
         .onChange(of: hasGrantedLocationPermission) { newValue in
             if !newValue {
@@ -251,7 +288,9 @@ struct MainScreen: View {
     }
     
     private func soundtrackCard(soundtrack: Soundtrack, index: Int, delay: Double) -> some View {
-        ZStack {
+        let isMovingUp = movingUpId == soundtrack.id
+        let isMovingDown = movingDownId == soundtrack.id
+        return ZStack {
             Rectangle()
                 .fill(.clear)
                 .cornerRadius(20)
@@ -280,7 +319,7 @@ struct MainScreen: View {
                                 Text("Distance Played: \(Int(miles)) mi")
                                     .foregroundColor(.white)
                                     .font(.system(size: 16, weight: .medium))
-                                    
+                                    .contentTransition(.numericText())
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -336,9 +375,14 @@ struct MainScreen: View {
         }
         .frame(height: 108)
         .opacity(soundtracksBeingDeleted.contains(soundtrack.id) ? 0 : 1)
-        .scaleEffect(soundtracksBeingDeleted.contains(soundtrack.id) ? 0.8 : 1)
+        .scaleEffect(soundtracksBeingDeleted.contains(soundtrack.id) ? 0.8 : (isMovingUp ? 1.08 : 1.0))
+        .offset(y: isMovingUp ? -16 : (isMovingDown ? 16 : 0))
+        .blur(radius: isMovingDown ? 8 : 0)
+        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isMovingUp)
+        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isMovingDown)
         .animation(.easeInOut(duration: 0.3), value: soundtracksBeingDeleted)
         .modifier(FlyInCardEffect(isVisible: animateCards, delay: delay))
+        .matchedGeometryEffect(id: soundtrack.id, in: cardNamespace)
     }
 }
 
