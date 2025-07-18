@@ -29,6 +29,7 @@ struct PlaybackPage: View {
     @State private var maxSpeedScale: [Int: CGFloat] = [:]
     @State private var minSpeedBelow: [Int: Bool] = [:]
     @State private var maxSpeedBelow: [Int: Bool] = [:]
+    @State private var scrollToBottom = false
     
     private func mapVolume(_ percentage: Float) -> Float {
         let mapped = (percentage + 100) / 100
@@ -124,13 +125,40 @@ struct PlaybackPage: View {
                     }
                 } else {
                     ZStack {
-                        ScrollView(.vertical, showsIndicators: false) {
-                            trackList()
-                                .padding(.horizontal)
-                                .padding(.top, 160)
-                                .padding(.bottom, 140)
+                        ScrollViewReader { proxy in
+                            let displayTracks = pendingSoundtrack?.tracks ?? audioController.currentTracks
+                            let shouldDisableScroll = displayTracks.count <= 4
+                            
+                            ScrollView(.vertical, showsIndicators: false) {
+                                trackList()
+                                    .padding(.horizontal)
+                                    .padding(.top, 160)
+                                    .padding(.bottom, 140)
+                                    .id("trackListBottom")
+                            }
+                            .disabled(shouldDisableScroll)
+                            .ignoresSafeArea()
+                            .onAppear {
+                                if shouldDisableScroll {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        withAnimation(.easeInOut(duration: 0.5)) {
+                                            proxy.scrollTo("trackListBottom", anchor: .bottom)
+                                        }
+                                    }
+                                }
+                            }
+                            .onChange(of: pendingSoundtrack) { oldValue, newValue in
+                                let newDisplayTracks = newValue?.tracks ?? audioController.currentTracks
+                                let newShouldDisableScroll = newDisplayTracks.count <= 4
+                                if newShouldDisableScroll {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        withAnimation(.easeInOut(duration: 0.5)) {
+                                            proxy.scrollTo("trackListBottom", anchor: .bottom)
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        .ignoresSafeArea()
 
                         VStack(spacing: 20) {
                             // Header
