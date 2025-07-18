@@ -23,8 +23,15 @@ class AudioController: ObservableObject {
     public var currentPlayers: [AVAudioPlayer?] = []
     public var currentTracks: [AudioController.SoundtrackData] = []
     private var syncTimer: Timer?
-    private var locationHandler: LocationHandler
+    var locationHandler: LocationHandler
     public var currentSoundtrackID: UUID? = nil // <-- Add this property
+    @Published var isHushActive: Bool = false
+    
+    // Add a property to AudioController to hold the hush timer
+    private var hushSpeedTimer: Timer?
+    
+    // Add a property to track hush cooldown
+    private var hushCooldownUntil: Date? = nil
     
     struct SoundtrackData: Codable {
         let audioFileName: String
@@ -46,10 +53,25 @@ class AudioController: ObservableObject {
     // Add this new method to adjust volumes based on speed
     func adjustVolumesForSpeed(_ speed: Double) {
         guard isSoundtrackPlaying else { return }
+        // Prevent dynamic track volume changes if hush is active
+        if isHushActive {
+            // Enforce hush volumes regardless of speed
+            for (index, player) in currentPlayers.enumerated() {
+                guard let player = player, player.isPlaying else { continue }
+                if index == 0 {
+                    let normalVolume = calculateVolumeForTrack(at: 0, speed: speed)
+                    let hushVolume = normalVolume * 0.1
+                    fadeVolume(for: player, to: hushVolume, duration: 0.5, trackIndex: 0)
+                } else {
+                    fadeVolume(for: player, to: 0.0, duration: 0.5, trackIndex: index)
+                }
+            }
+            return
+        }
         for (index, player) in currentPlayers.enumerated() {
             if let player = player, player.isPlaying {
                 let targetVolume = calculateVolumeForTrack(at: index, speed: speed)
-                fadeVolume(for: player, to: targetVolume, duration: 1.0)
+                fadeVolume(for: player, to: targetVolume, duration: 1.0, trackIndex: index)
             }
         }
         updateNowPlayingInfo()
@@ -132,7 +154,6 @@ class AudioController: ObservableObject {
         } else {
             // --- Synchronize all players before playing ---
             let tolerance: TimeInterval = 0.05
-            // Find a reference time (use masterPlaybackTime if set, else first player's time, else 0)
             let referenceTime: TimeInterval = {
                 if masterPlaybackTime > 0 {
                     return masterPlaybackTime
@@ -142,10 +163,8 @@ class AudioController: ObservableObject {
                     return 0.0
                 }
             }()
-            // Check if all players are within tolerance
             let allSynced = currentPlayers.compactMap { $0?.currentTime }.allSatisfy { abs($0 - referenceTime) < tolerance }
             if !allSynced {
-                // Set all players to the reference time
                 for player in currentPlayers {
                     player?.currentTime = referenceTime
                 }
@@ -153,15 +172,24 @@ class AudioController: ObservableObject {
             }
             let deviceCurrentTime = currentPlayers.first(where: { $0 != nil })??.deviceCurrentTime ?? 0
             let startTime = deviceCurrentTime + 0.1
-            // Use the current soundtrack's UUID for distance tracking
             if let soundtrackID = currentSoundtrackID {
                 locationHandler.startDistanceTracking(for: soundtrackID)
             }
             for (index, player) in currentPlayers.enumerated() {
                 if let player = player {
-                    player.currentTime = masterPlaybackTime // Use masterPlaybackTime, which may be 0 after rewind
+                    player.currentTime = masterPlaybackTime
                     player.numberOfLoops = -1
-                    player.volume = calculateVolumeForTrack(at: index, speed: locationHandler.speedMPH)
+                    if isHushActive {
+                        if index == 0 {
+                            let normalVolume = calculateVolumeForTrack(at: 0, speed: locationHandler.speedMPH)
+                            let hushVolume = normalVolume * 0.1
+                            player.volume = hushVolume
+                        } else {
+                            player.volume = 0.0
+                        }
+                    } else {
+                        player.volume = calculateVolumeForTrack(at: index, speed: locationHandler.speedMPH)
+                    }
                     player.play(atTime: startTime)
                 }
             }
@@ -187,6 +215,22 @@ class AudioController: ObservableObject {
         currentPlayers = players
         currentSoundtrackTitle = title
         currentSoundtrackID = id
+        // Set initial volumes respecting hush state
+        for (index, player) in currentPlayers.enumerated() {
+            if let player = player {
+                if isHushActive {
+                    if index == 0 {
+                        let normalVolume = calculateVolumeForTrack(at: 0, speed: locationHandler.speedMPH)
+                        let hushVolume = normalVolume * 0.1
+                        player.volume = hushVolume
+                    } else {
+                        player.volume = 0.0
+                    }
+                } else {
+                    player.volume = calculateVolumeForTrack(at: index, speed: locationHandler.speedMPH)
+                }
+            }
+        }
         updateNowPlayingInfo()
     }
     
@@ -250,18 +294,84 @@ class AudioController: ObservableObject {
         return max(0.0, min(2.0, mapped))
     }
     
-    func fadeVolume(for player: AVAudioPlayer?, to targetVolume: Float, duration: TimeInterval = 1.0) {
+    func fadeVolume(for player: AVAudioPlayer?, to targetVolume: Float, duration: TimeInterval = 1.0, trackIndex: Int? = nil) {
         guard let player = player else { return }
         let steps = 20
         let stepInterval = duration / Double(steps)
         let startVolume = player.volume
-        let volumeStep = (targetVolume - startVolume) / Float(steps)
-        
-        for i in 0...steps {
-            DispatchQueue.main.asyncAfter(deadline: .now() + stepInterval * Double(i)) {
-                player.volume = max(0.0, min(2.0, startVolume + volumeStep * Float(i)))
+        var effectiveTarget = targetVolume
+        if isHushActive, let idx = trackIndex {
+            if idx == 0 {
+                // Base track: 10% of normal
+                let normalVolume = calculateVolumeForTrack(at: 0, speed: locationHandler.speedMPH)
+                effectiveTarget = normalVolume * 0.1
+            } else {
+                // Dynamic tracks: mute
+                effectiveTarget = 0.0
             }
         }
+        let volumeStep = (effectiveTarget - startVolume) / Float(steps)
+        for i in 0...steps {
+            DispatchQueue.main.asyncAfter(deadline: .now() + stepInterval * Double(i)) {
+                // Re-check hush state at each step for robustness
+                var stepTarget = effectiveTarget
+                if self.isHushActive, let idx = trackIndex {
+                    if idx == 0 {
+                        let normalVolume = self.calculateVolumeForTrack(at: 0, speed: self.locationHandler.speedMPH)
+                        stepTarget = normalVolume * 0.1
+                    } else {
+                        stepTarget = 0.0
+                    }
+                }
+                player.volume = max(0.0, min(2.0, startVolume + volumeStep * Float(i)))
+                // Clamp to hush volume if hush is on
+                if self.isHushActive, let idx = trackIndex {
+                    if idx == 0 {
+                        let normalVolume = self.calculateVolumeForTrack(at: 0, speed: self.locationHandler.speedMPH)
+                        player.volume = min(player.volume, normalVolume * 0.1)
+                    } else {
+                        player.volume = 0.0
+                    }
+                }
+            }
+        }
+    }
+    
+    // Hush logic: temporarily mute dynamic tracks and set their volume to 30% of normal
+    func activateHush() {
+        // Prevent activation if cooldown is active
+        if let cooldown = hushCooldownUntil, cooldown > Date() {
+            return
+        }
+        guard isSoundtrackPlaying else { return }
+        isHushActive = true
+        locationHandler.pauseSpeedUpdates()
+        locationHandler.speedMPH = 0.0
+        adjustVolumesForSpeed(0.0) // Immediately apply hush volumes
+        // Start a repeating timer to keep speed at 0 every 5 seconds while hush is active
+        hushSpeedTimer?.invalidate()
+        hushSpeedTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            guard let self = self, self.isHushActive else { return }
+            self.locationHandler.speedMPH = 0.0
+        }
+    }
+    
+    func deactivateHush() {
+        guard isSoundtrackPlaying else { return }
+        isHushActive = false
+        hushSpeedTimer?.invalidate()
+        hushSpeedTimer = nil
+        // Set cooldown for 5 seconds
+        hushCooldownUntil = Date().addingTimeInterval(5.0)
+        locationHandler.resumeSpeedUpdates()
+        for (index, player) in currentPlayers.enumerated() {
+            guard let player = player, player.isPlaying else { continue }
+            // Restore normal volume
+            let normalVolume = calculateVolumeForTrack(at: index, speed: locationHandler.speedMPH)
+            fadeVolume(for: player, to: normalVolume, duration: 0.5)
+        }
+        // After hush is off, allow normal volume logic to resume
+        adjustVolumesForSpeed(locationHandler.speedMPH)
     }
 }
 
@@ -322,7 +432,7 @@ struct Soundtrack: Identifiable, Codable {
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     let audioController: AudioController
-    private let locationHandler = LocationHandler()
+    let locationHandler = LocationHandler()
     
     override init() {
         self.audioController = AudioController(locationHandler: locationHandler)
@@ -399,7 +509,7 @@ struct ContentView: View {
     @State private var showImportPage = false // New state for import page
     @State private var showImportPicker = false // New state for import picker
     @State private var importedSoundtrackURL: URL? // Store imported soundtrack folder URL
-    @StateObject private var locationHandler = LocationHandler()
+    @EnvironmentObject var locationHandler: LocationHandler
     @EnvironmentObject private var audioController: AudioController
     @State private var soundtracks: [Soundtrack] = []
     @State private var displayedSpeed: Int = 0 // For the numerical display (no animation)
@@ -852,10 +962,18 @@ struct ContentView: View {
             }
             
             withAnimation(.easeInOut(duration: 1.0)) {
-                for (index, player) in audioController.currentPlayers.enumerated() {
-                    if let player = player, player.isPlaying {
-                        let targetVolume = audioController.calculateVolumeForTrack(at: index, speed: newSpeed)
-                        audioController.fadeVolume(for: player, to: targetVolume, duration: 1.0)
+                if audioController.isHushActive {
+                    // Only update base track (index 0) if hush is active
+                    if let player = audioController.currentPlayers.first, let basePlayer = player, basePlayer.isPlaying {
+                        let targetVolume = audioController.calculateVolumeForTrack(at: 0, speed: newSpeed)
+                        audioController.fadeVolume(for: basePlayer, to: targetVolume, duration: 1.0)
+                    }
+                } else {
+                    for (index, player) in audioController.currentPlayers.enumerated() {
+                        if let player = player, player.isPlaying {
+                            let targetVolume = audioController.calculateVolumeForTrack(at: index, speed: newSpeed)
+                            audioController.fadeVolume(for: player, to: targetVolume, duration: 1.0)
+                        }
                     }
                 }
             }
@@ -2504,6 +2622,7 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
     private var isTrackingDistance: Bool = false
     private let locationManager = CLLocationManager()
     private var currentSoundtrackID: UUID?
+    var isSpeedUpdatesPaused: Bool = false // <--- Add this
     
     // Per-soundtrack distance storage
     @Published var soundtrackDistances: [UUID: Double] = [:] // miles
@@ -2537,6 +2656,10 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
             return
         }
         self.location = location
+        if isSpeedUpdatesPaused {
+            // Don't update speed or trigger volume logic
+            return
+        }
         let speed = max(location.speed, 0)
         speedMPH = speed * 2.23694 // Remove min(..., 80) to allow speeds above 80
         
@@ -2614,6 +2737,15 @@ class LocationHandler: NSObject, ObservableObject, CLLocationManagerDelegate {
         } else {
             hasGrantedLocationPermission = false
         }
+    }
+    
+    func pauseSpeedUpdates() {
+        isSpeedUpdatesPaused = true
+        speedMPH = 0.0
+    }
+    
+    func resumeSpeedUpdates() {
+        isSpeedUpdatesPaused = false
     }
 }
 

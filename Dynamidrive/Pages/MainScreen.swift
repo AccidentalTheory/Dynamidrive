@@ -244,6 +244,10 @@ struct MainScreen: View {
                 showLocationDeniedView = true
             }
         }
+ 
+        .onReceive(locationHandler.$soundtrackDistances) { _ in
+          
+        }
     }
     
     private func soundtrackCard(soundtrack: Soundtrack, index: Int, delay: Double) -> some View {
@@ -276,11 +280,12 @@ struct MainScreen: View {
                                 Text("Distance Played: \(Int(miles)) mi")
                                     .foregroundColor(.white)
                                     .font(.system(size: 16, weight: .medium))
-                                    .animation(.default, value: miles)
+                                    
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
+                        
                     }
                     .buttonStyle(PlainButtonStyle())
                 }

@@ -182,14 +182,23 @@ struct PlaybackPage: View {
                     .frame(width: 100, alignment: .leading)
                     .offset(x: -3)
                 Spacer()
-                Text("\(displayedSpeed)")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundColor(.white)
-                    .frame(width: 40, alignment: .trailing)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                    .contentTransition(.numericText())
-                    .animation(.default, value: displayedSpeed)
+                if locationHandler.isSpeedUpdatesPaused {
+                    Text("--")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 40, alignment: .trailing)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                } else {
+                    Text("\(displayedSpeed)")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 40, alignment: .trailing)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .contentTransition(.numericText())
+                        .animation(.default, value: displayedSpeed)
+                }
                 Gauge(value: animatedSpeed.wrappedValue, in: 0...180) {
                     EmptyView()
                 }
@@ -316,30 +325,67 @@ struct PlaybackPage: View {
         VStack {
             Spacer()
             HStack(spacing: 80) {
-                Button(action: {
-                    let impact = UIImpactFeedbackGenerator(style: .medium)
-                    impact.impactOccurred()
-                    audioController.masterPlaybackTime = 0
-                    for player in audioController.currentPlayers {
-                        player?.currentTime = 0
-                    }
-                    audioController.updateNowPlayingInfo()
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        isRewindShowingCheckmark = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            isRewindShowingCheckmark = false
+                if audioController.isSoundtrackPlaying {
+                    // Hush toggle replaces rewind when playing
+                    Button(action: {
+                        let impact = UIImpactFeedbackGenerator(style: .medium)
+                        impact.impactOccurred()
+                        if audioController.isHushActive {
+                            audioController.deactivateHush()
+                        } else {
+                            audioController.activateHush()
+                        }
+                    }) {
+                        if audioController.isHushActive {
+                            Image(systemName: "ear.badge.waveform")
+                                .font(.system(size: 24))
+                                .foregroundColor(.yellow)
+                                .frame(width: 50, height: 50)
+                                .background(Color.white.opacity(0.2))
+                                .clipShape(Circle())
+                                .glassEffect(.regular.tint(.clear).interactive())
+                                .symbolEffect(
+                                    .variableColor.iterative.dimInactiveLayers.nonReversing,
+                                    options: .repeat(.periodic(delay: 2.0)),
+                                    value: true
+                                )
+                        } else {
+                            Image(systemName: "ear.badge.waveform")
+                                .font(.system(size: 24))
+                                .foregroundColor(.white)
+                                .frame(width: 50, height: 50)
+                                .background(Color.white.opacity(0.2))
+                                .clipShape(Circle())
+                                .glassEffect(.regular.tint(.clear).interactive())
                         }
                     }
-                }) {
-                    Image(systemName: isRewindShowingCheckmark ? "checkmark" : "backward.end.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.white)
-                        .frame(width: 50, height: 50)
-                        .background(Color.white.opacity(0.2))
-                        .clipShape(Circle())
-                        .glassEffect(.regular.tint(.clear).interactive())
+                } else {
+                    // Rewind button when not playing
+                    Button(action: {
+                        let impact = UIImpactFeedbackGenerator(style: .medium)
+                        impact.impactOccurred()
+                        audioController.masterPlaybackTime = 0
+                        for player in audioController.currentPlayers {
+                            player?.currentTime = 0
+                        }
+                        audioController.updateNowPlayingInfo()
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            isRewindShowingCheckmark = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isRewindShowingCheckmark = false
+                            }
+                        }
+                    }) {
+                        Image(systemName: isRewindShowingCheckmark ? "checkmark" : "backward.end.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .frame(width: 50, height: 50)
+                            .background(Color.white.opacity(0.2))
+                            .clipShape(Circle())
+                            .glassEffect(.regular.tint(.clear).interactive())
+                    }
                 }
                 
                 Button(action: {
