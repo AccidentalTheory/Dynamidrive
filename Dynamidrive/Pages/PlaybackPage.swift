@@ -2,6 +2,7 @@ import SwiftUI
 import AVFoundation
 import MediaPlayer
 import MapKit
+import ZIPFoundation
 
 private struct DetentHeightPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = .infinity
@@ -22,6 +23,7 @@ struct PlaybackPage: View {
     @State private var showShareSheet = false
     @State private var isCompactHeight = false
     @State private var currentHeight: CGFloat = .infinity
+    @State private var isExporting = false
     
     @State private var minSpeedScale: [Int: CGFloat] = [:]
     @State private var maxSpeedScale: [Int: CGFloat] = [:]
@@ -41,26 +43,54 @@ struct PlaybackPage: View {
         
         let soundtrack = pendingSoundtrack ?? Soundtrack(id: UUID(), title: audioController.currentSoundtrackTitle, tracks: audioController.currentTracks, players: audioController.currentPlayers, cardColor: .clear)
         
-        let soundtrackFolder = documentsDirectory.appendingPathComponent(soundtrack.title)
+        // Create a temporary directory for sharing
+        guard let tempBaseURL = try? fileManager.url(
+            for: .itemReplacementDirectory,
+            in: .userDomainMask,
+            appropriateFor: documentsDirectory,
+            create: true
+        ) else { return [] }
+        
+        let soundtrackFolder = tempBaseURL.appendingPathComponent(soundtrack.title)
         try? fileManager.createDirectory(at: soundtrackFolder, withIntermediateDirectories: true, attributes: nil)
         
-        var audioFiles: [URL] = []
+        // Copy audio files and rename to display name
+        var exportedFileNames: [String] = []
         for track in soundtrack.tracks {
             let sourceURL = documentsDirectory.appendingPathComponent(track.audioFileName)
-            let destinationURL = soundtrackFolder.appendingPathComponent(track.audioFileName)
+            // Use display name as file name, sanitize for filesystem, and add .mp3 extension
+            let sanitizedDisplayName = track.displayName.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+            let exportFileName = sanitizedDisplayName + ".mp3"
+            let destinationURL = soundtrackFolder.appendingPathComponent(exportFileName)
             try? fileManager.copyItem(at: sourceURL, to: destinationURL)
-            audioFiles.append(destinationURL)
+            exportedFileNames.append(exportFileName)
         }
         
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
-        if let data = try? encoder.encode(soundtrack) {
-            let jsonURL = soundtrackFolder.appendingPathComponent("soundtrack.json")
-            try? data.write(to: jsonURL)
-            audioFiles.append(jsonURL)
+        // Generate info.txt content referencing the new file names
+        var infoText = "Dynamidrive Soundtrack: \(soundtrack.title)\n\n"
+        for (index, track) in soundtrack.tracks.enumerated() {
+            infoText += "Track: \(track.displayName)\n"
+            infoText += "File: \(exportedFileNames[index])\n"
+            if track.minimumSpeed == 0 && track.maximumSpeed == 0 {
+                infoText += "Always playing\n"
+            } else {
+                infoText += "Speed range: \(track.minimumSpeed)-\(track.maximumSpeed) mph\n"
+            }
+            infoText += String(format: "Volume: %.1f\n\n", track.maximumVolume)
+        }
+        let infoURL = soundtrackFolder.appendingPathComponent("info.txt")
+        try? infoText.write(to: infoURL, atomically: true, encoding: .utf8)
+        
+        // Zip the folder using ZIPFoundation
+        let zipURL = tempBaseURL.appendingPathComponent("\(soundtrack.title).zip")
+        do {
+            try fileManager.zipItem(at: soundtrackFolder, to: zipURL)
+        } catch {
+            print("Failed to zip soundtrack folder: \(error)")
+            return []
         }
         
-        return [soundtrackFolder]
+        return [zipURL]
     }
     
     var body: some View {
@@ -110,12 +140,22 @@ struct PlaybackPage: View {
                                     .foregroundColor(.white)
                                 Spacer()
                                 Button(action: {
-                                    showShareSheet = true
+                                    isExporting = true
+                                    // Delay to allow UI update before heavy work
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        showShareSheet = true
+                                    }
                                 }) {
-                                    Image(systemName: "square.and.arrow.up")
-                                        .font(.system(size: 20))
-                                        .foregroundColor(.white)
-                                        .frame(width: 30, height: 30)
+                                    if isExporting {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                            .frame(width: 30, height: 30)
+                                    } else {
+                                        Image(systemName: "square.and.arrow.up")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(.white)
+                                            .frame(width: 30, height: 30)
+                                    }
                                 }
                             }
                             .padding(.horizontal)
@@ -147,7 +187,9 @@ struct PlaybackPage: View {
             }
             .background(.clear)
             .ignoresSafeArea()
-            .sheet(isPresented: $showShareSheet) {
+            .sheet(isPresented: $showShareSheet, onDismiss: {
+                isExporting = false
+            }) {
                 ShareSheet(activityItems: prepareForSharing())
             }
             .interactiveDismissDisabled(false)

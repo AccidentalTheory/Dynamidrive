@@ -606,6 +606,10 @@ struct ContentView: View {
     @State private var hasAnimatedOnce: Bool = false
     @State private var wasPlaybackSheetOpenForSpeedDetail: Bool = false // Track if playback sheet was open before speed detail
     @State private var selectedCardColor: Color = .clear // New state for card color selection
+    @State private var importSoundtrackTitle: String = ""
+    @State private var importTracks: [ImportTrack] = []
+    @State private var importTempFolder: URL? = nil
+    @State private var importError: String? = nil
     
     // MARK: Gauge Settings
     @AppStorage("portraitGaugeStyle") private var portraitGaugeStyle: String = "fullCircle" // "fullCircle" or "separatedArc"
@@ -757,7 +761,8 @@ struct ContentView: View {
                                 previousPage: $previousPage,
                                 createTip: $createTip,
                                 showLengthMismatchAlert: $showLengthMismatchAlert,
-                                soundtracks: $soundtracks
+                                soundtracks: $soundtracks,
+                                saveSoundtracks: saveSoundtracks
                             )
                             .environmentObject(audioController)
                             .transition(.asymmetric(
@@ -835,6 +840,8 @@ struct ContentView: View {
                                 insertion: previousPage == .masterSettings ? .move(edge: .trailing) : .move(edge: .leading),
                                 removal: .move(edge: .leading)
                             ))
+                        case .importConfirmation:
+                            EmptyView()
                         }
                     }
                     .zIndex(9)
@@ -1712,7 +1719,7 @@ struct ContentView: View {
     }
     
     // MARK: - Persistence Functions
-    private func saveSoundtracks() {
+    func saveSoundtracks() {
         let fileManager = FileManager.default
         guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
             print("Failed to access documents directory for saving soundtracks")
@@ -2562,7 +2569,7 @@ struct DocumentPicker: UIViewControllerRepresentable {
     var onPick: (URL) -> Void
     
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.mp3], asCopy: true)
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.zip], asCopy: true)
         picker.delegate = context.coordinator
         return picker
     }

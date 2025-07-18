@@ -221,6 +221,7 @@ struct PageLayout<Content: View>: View {
                 Spacer()
             }
             .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
             // Bottom gradient overlay, only visible when not at bottom
             VStack {
                 Spacer()
@@ -238,6 +239,7 @@ struct PageLayout<Content: View>: View {
                     .ignoresSafeArea(edges: .bottom)
                     .opacity(!isAtBottom ? 1 : 0)
                     .animation(.easeInOut(duration: 0.2), value: isAtBottom)
+                    .allowsHitTesting(false)
                     // Bottom buttons always visible, on top of the gradient
                     HStack(spacing: buttonSpacing) {
                         if bottomButtons.count == 1 {

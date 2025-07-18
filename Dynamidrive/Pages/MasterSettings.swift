@@ -57,6 +57,7 @@ struct MasterSettings: View {
     }
     
     @AppStorage("showMutedLocationIndicator") private var showMutedLocationIndicator: Bool = false
+    @AppStorage("forceClearCardColor") private var forceClearCardColor: Bool = false // New toggle for clear card color
     @AppStorage("sortOption") private var sortOption: SortOption = .distancePlayed
     @AppStorage("isSortChevronUp") private var isSortChevronUp: Bool = false
     @State private var showSortOrderText: Bool = false
@@ -199,6 +200,9 @@ struct MasterSettings: View {
                             // Show toggle only if Muted is selected
                             if mapStyle == .muted {
                                 Toggle("Show Location Indicator", isOn: $showMutedLocationIndicator)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal)
+                                Toggle("Force Clear Card Color", isOn: $forceClearCardColor)
                                     .foregroundColor(.white)
                                     .padding(.horizontal)
                             }

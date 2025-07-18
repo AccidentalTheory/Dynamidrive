@@ -4,6 +4,8 @@ import SwiftUI
 import AVFoundation
 import UniformTypeIdentifiers
 import UIKit
+import ZIPFoundation
+ // If needed, or use relative import if in same module
 
 struct CreatePage: View {
     @Binding var showCreatePage: Bool
@@ -33,12 +35,30 @@ struct CreatePage: View {
     @EnvironmentObject private var audioController: AudioController
     @Binding var showLengthMismatchAlert: Bool
     @Binding var soundtracks: [Soundtrack]
+    var saveSoundtracks: () -> Void // Add this parameter
+    @State private var showImportPicker = false
+    @State private var importZipURL: URL? = nil
+    // Import system state
+    @State private var importSoundtrackTitle: String = ""
+    @State private var importTracks: [ImportTrack] = []
+    @State private var importTempFolder: URL? = nil
+    @State private var importError: String? = nil
+    // Add back the local state for the sheet:
+    @State private var showImportConfirmation = false
+
+    private struct ParsedTrack {
+        let displayName: String
+        let fileName: String
+        let minSpeed: Int
+        let maxSpeed: Int
+        let volume: Float
+    }
     // Add any other bindings needed for full functionality
 
     var body: some View {
         PageLayout(
             title: "Create New",
-            leftButtonAction: { /* TODO: Implement save/export action */ },
+            leftButtonAction: { showImportPicker = true },
             rightButtonAction: { showInfoPage = true },
             leftButtonSymbol: "square.and.arrow.down",
             rightButtonSymbol: "info",
@@ -72,14 +92,68 @@ struct CreatePage: View {
                 Spacer().frame(height: 100)
             }
         }
+        .sheet(isPresented: $showImportPicker) {
+            DocumentPicker(onPick: { url in
+                print("Picked zip file: \(url)")
+                importZipURL = url
+                handleImportZip(url)
+            })
+        }
         .sheet(isPresented: $showInfoPage) {
             infoPage()
         }
-        .alert(isPresented: $showLengthMismatchAlert) {
-            Alert(
-                title: Text("Length Mismatch"),
-                message: Text("All tracks should be the same length"),
-                dismissButton: .default(Text("OK"))
+        .alert(isPresented: Binding<Bool>(
+            get: { importError != nil },
+            set: { if !$0 { importError = nil } }
+        )) {
+            Alert(title: Text("Import Error"), message: Text(importError ?? "Unknown error"), dismissButton: .default(Text("OK")))
+        }
+        .sheet(isPresented: $showImportConfirmation) {
+            ImportConfirmationPage(
+                soundtrackTitle: importSoundtrackTitle,
+                tracks: importTracks,
+                onCancel: {
+                    for t in importTracks { t.player?.stop() }
+                    if let temp = importTempFolder { try? FileManager.default.removeItem(at: temp) }
+                    importTracks = []
+                    importSoundtrackTitle = ""
+                    importTempFolder = nil
+                    showImportConfirmation = false
+                },
+                onImport: { selectedColor in 
+                    do {
+                        let fileManager = FileManager.default
+                        guard let tempFolder = importTempFolder else { return }
+                        let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+                        var newTracks: [AudioController.SoundtrackData] = []
+                        for t in importTracks {
+                            let newFileName = "Soundtrack\(soundtracks.count + 1)_\(t.displayName)_\(UUID().uuidString).mp3"
+                            let destURL = documentsDirectory.appendingPathComponent(newFileName)
+                            try? fileManager.copyItem(at: t.fileURL, to: destURL)
+                            newTracks.append(AudioController.SoundtrackData(
+                                audioFileName: newFileName,
+                                displayName: t.displayName,
+                                maximumVolume: t.volume,
+                                minimumSpeed: t.minSpeed,
+                                maximumSpeed: t.maxSpeed
+                            ))
+                        }
+                        let players = newTracks.map { track in
+                            try? AVAudioPlayer(contentsOf: documentsDirectory.appendingPathComponent(track.audioFileName))
+                        }
+                        soundtracks.append(Soundtrack(id: UUID(), title: importSoundtrackTitle, tracks: newTracks, players: players, cardColor: selectedColor))
+                        for t in importTracks { t.player?.stop() }
+                        if let temp = importTempFolder { try? fileManager.removeItem(at: temp) }
+                        importTracks = []
+                        importSoundtrackTitle = ""
+                        importTempFolder = nil
+                        showImportConfirmation = false
+                        currentPage = .main
+                        saveSoundtracks() // Call the saveSoundtracks closure
+                    } catch {
+                        importError = "Failed to import soundtrack: \(error.localizedDescription)"
+                    }
+                }
             )
         }
     }
@@ -539,5 +613,147 @@ struct CreatePage: View {
     private func mapVolume(_ percentage: Float) -> Float {
         let mapped = (percentage + 100) / 100
         return max(0.0, min(2.0, mapped))
+    }
+
+    // MARK: - Import System Logic
+    private func handleImportZip(_ zipURL: URL) {
+        print("handleImportZip called with: \(zipURL)")
+        // Clean up any previous temp folder
+        if let temp = importTempFolder {
+            try? FileManager.default.removeItem(at: temp)
+            importTempFolder = nil
+        }
+        let fileManager = FileManager.default
+        do {
+            // Create a temp folder
+            let tempFolder = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try fileManager.createDirectory(at: tempFolder, withIntermediateDirectories: true)
+            // Unzip
+            try fileManager.unzipItem(at: zipURL, to: tempFolder)
+            // Recursively find info.txt
+            guard let infoURL = findInfoTxt(in: tempFolder) else {
+                showImportPicker = false
+                importError = "Import failed: info.txt not found in zip."
+                print(importError ?? "")
+                try? fileManager.removeItem(at: tempFolder)
+                return
+            }
+            // Find all audio files recursively
+            let audioFiles = findAudioFiles(in: tempFolder)
+            if audioFiles.isEmpty {
+                showImportPicker = false
+                importError = "Import failed: No audio files found in zip."
+                print(importError ?? "")
+                try? fileManager.removeItem(at: tempFolder)
+                return
+            }
+            // Parse info.txt
+            let infoText = try String(contentsOf: infoURL)
+            let (title, tracks) = parseInfoTxt(infoText: infoText, audioFiles: audioFiles)
+            if tracks.isEmpty {
+                showImportPicker = false
+                importError = "Import failed: No valid tracks found in info.txt."
+                print(importError ?? "")
+                try? fileManager.removeItem(at: tempFolder)
+                return
+            }
+            // Prepare AVAudioPlayers for preview
+            var importTracksTemp: [ImportTrack] = []
+            for t in tracks {
+                if let fileURL = audioFiles.first(where: { $0.lastPathComponent == t.fileName }) {
+                    let player = try? AVAudioPlayer(contentsOf: fileURL)
+                    importTracksTemp.append(ImportTrack(displayName: t.displayName, fileURL: fileURL, minSpeed: t.minSpeed, maxSpeed: t.maxSpeed, volume: t.volume, player: player))
+                } else {
+                    showImportPicker = false
+                    importError = "Import failed: Audio file \(t.fileName) referenced in info.txt not found in zip."
+                    print(importError ?? "")
+                    try? fileManager.removeItem(at: tempFolder)
+                    return
+                }
+            }
+            importSoundtrackTitle = title
+            importTracks = importTracksTemp
+            importTempFolder = tempFolder
+            print("Parsed info.txt, navigating to import confirmation page")
+            // showImportConfirmation = true
+            showImportConfirmation = true
+        } catch {
+            showImportPicker = false
+            importError = "Failed to import zip: \(error.localizedDescription)"
+            print("Import error: \(error)")
+        }
+    }
+
+    // Recursively find info.txt or soundtrack_info.txt
+    private func findInfoTxt(in directory: URL) -> URL? {
+        let fileManager = FileManager.default
+        if let enumerator = fileManager.enumerator(at: directory, includingPropertiesForKeys: nil) {
+            for case let fileURL as URL in enumerator {
+                if fileURL.lastPathComponent.lowercased() == "info.txt" || fileURL.lastPathComponent.lowercased() == "soundtrack_info.txt" {
+                    return fileURL
+                }
+            }
+        }
+        return nil
+    }
+
+    // Recursively find all audio files
+    private func findAudioFiles(in directory: URL) -> [URL] {
+        let fileManager = FileManager.default
+        var audioFiles: [URL] = []
+        if let enumerator = fileManager.enumerator(at: directory, includingPropertiesForKeys: nil) {
+            for case let fileURL as URL in enumerator {
+                let ext = fileURL.pathExtension.lowercased()
+                if ext == "mp3" || ext == "wav" || ext == "m4a" {
+                    audioFiles.append(fileURL)
+                }
+            }
+        }
+        return audioFiles
+    }
+
+    private func parseInfoTxt(infoText: String, audioFiles: [URL]) -> (String, [ParsedTrack]) {
+        var title = ""
+        var tracks: [ParsedTrack] = []
+        let lines = infoText.components(separatedBy: .newlines)
+        var currentTrack: ParsedTrack? = nil
+        var currentName = ""
+        var currentFile = ""
+        var minSpeed = 0
+        var maxSpeed = 0
+        var volume: Float = 0.0
+        for line in lines {
+            if line.hasPrefix("Dynamidrive Soundtrack: ") {
+                title = String(line.dropFirst("Dynamidrive Soundtrack: ".count))
+            } else if line.hasPrefix("Track: ") {
+                if !currentName.isEmpty && !currentFile.isEmpty {
+                    tracks.append(ParsedTrack(displayName: currentName, fileName: currentFile, minSpeed: minSpeed, maxSpeed: maxSpeed, volume: volume))
+                }
+                currentName = String(line.dropFirst("Track: ".count))
+                currentFile = ""
+                minSpeed = 0
+                maxSpeed = 0
+                volume = 0.0
+            } else if line.hasPrefix("File: ") {
+                currentFile = String(line.dropFirst("File: ".count))
+            } else if line == "Always playing" {
+                minSpeed = 0
+                maxSpeed = 0
+            } else if line.hasPrefix("Speed range: ") {
+                let range = line.replacingOccurrences(of: "Speed range: ", with: "").replacingOccurrences(of: " mph", with: "")
+                let comps = range.components(separatedBy: "-")
+                if comps.count == 2, let min = Int(comps[0].trimmingCharacters(in: .whitespaces)), let max = Int(comps[1].trimmingCharacters(in: .whitespaces)) {
+                    minSpeed = min
+                    maxSpeed = max
+                }
+            } else if line.hasPrefix("Volume: ") {
+                let v = line.replacingOccurrences(of: "Volume: ", with: "")
+                volume = Float(v.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0.0
+            }
+        }
+        if !currentName.isEmpty && !currentFile.isEmpty {
+            tracks.append(ParsedTrack(displayName: currentName, fileName: currentFile, minSpeed: minSpeed, maxSpeed: maxSpeed, volume: volume))
+        }
+        return (title, tracks)
     }
 } 

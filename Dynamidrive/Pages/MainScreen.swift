@@ -28,6 +28,7 @@ struct MainScreen: View {
     @AppStorage("hasGrantedLocationPermission") private var hasGrantedLocationPermission = false
     @AppStorage("sortOption") private var sortOptionRaw: String = "Creation Date"
     @AppStorage("isSortChevronUp") private var isSortChevronUp: Bool = false
+    @AppStorage("forceClearCardColor") private var forceClearCardColor: Bool = false // Read the toggle
     
     @State private var showWelcomeScreen = false
     @State private var showLocationDeniedView = false
@@ -38,8 +39,9 @@ struct MainScreen: View {
     
     @Namespace private var cardNamespace
     @State private var previousOrder: [UUID] = []
-    @State private var movingUpId: UUID? = nil
-    @State private var movingDownId: UUID? = nil
+    @State private var isAnimatingReorder: Bool = false
+    @State private var cardPositions: [UUID: Int] = [:]
+    @State private var animationProgress: Double = 0.0
     
     var cardAnimationDelay: Double = 0
     
@@ -163,7 +165,7 @@ struct MainScreen: View {
                             ScrollView(.vertical, showsIndicators: false) {
                                 VStack(spacing: 14) {
                                     Color.clear.frame(height: UIScreen.main.bounds.height * 0.08)
-                                    ForEach(sortedSoundtracks.indices, id: \ .self) { index in
+                                    ForEach(sortedSoundtracks.indices, id: \.self) { index in
                                         let soundtrack = sortedSoundtracks[index]
                                         let delay = cardAnimationDelay + Double(index) * 0.1
                                         InViewScrollEffect(triggerArea: 1, blur: 10, scale: 0.66) {
@@ -243,38 +245,44 @@ struct MainScreen: View {
                     showLocationDeniedView = true
                 }
             }
-            previousOrder = sortedSoundtracks.map { $0.id }
+            // Initialize card positions
+            let newOrder = sortedSoundtracks.map { $0.id }
+            for (index, id) in newOrder.enumerated() {
+                cardPositions[id] = index
+            }
+            previousOrder = newOrder
         }
         .onChange(of: sortedSoundtracks.map { $0.id }) { newOrder in
-            // Detect which card moved up and which moved down
-            let old = previousOrder
-            let new = newOrder
-            if old != new {
-                for (i, id) in new.enumerated() {
-                    if let oldIndex = old.firstIndex(of: id), oldIndex != i {
-                        if oldIndex > i {
-                            // Card moved up
-                            movingUpId = id
-                            if i+1 < new.count {
-                                movingDownId = new[i+1]
-                            }
-                        } else if oldIndex < i {
-                            // Card moved down
-                            movingDownId = id
-                            if i-1 >= 0 {
-                                movingUpId = new[i-1]
-                            }
-                        }
-                        break
+            let oldOrder = previousOrder
+            
+            // Only animate if the order actually changed
+            if oldOrder != newOrder {
+                // Start reorder animation
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                    isAnimatingReorder = true
+                    animationProgress = 0.0
+                }
+                
+                // Update card positions
+                for (index, id) in newOrder.enumerated() {
+                    cardPositions[id] = index
+                }
+                
+                // Animate the progress
+                withAnimation(.easeInOut(duration: 0.6)) {
+                    animationProgress = 1.0
+                }
+                
+                // Reset animation state
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isAnimatingReorder = false
+                        animationProgress = 0.0
                     }
                 }
             }
+            
             previousOrder = newOrder
-            // Reset after animation
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                movingUpId = nil
-                movingDownId = nil
-            }
         }
         .onChange(of: hasGrantedLocationPermission) { newValue in
             if !newValue {
@@ -288,13 +296,51 @@ struct MainScreen: View {
     }
     
     private func soundtrackCard(soundtrack: Soundtrack, index: Int, delay: Double) -> some View {
-        let isMovingUp = movingUpId == soundtrack.id
-        let isMovingDown = movingDownId == soundtrack.id
+        let cardColor = forceClearCardColor ? Color.clear : soundtrack.cardColor
+        let oldPosition = previousOrder.firstIndex(of: soundtrack.id) ?? index
+        let newPosition = index
+        let isMovingUp = oldPosition > newPosition
+        let isMovingDown = oldPosition < newPosition
+        
+        // Calculate animation values based on movement direction
+        let scaleEffect: Double = {
+            if isAnimatingReorder {
+                if isMovingUp {
+                    return 1.0 + (0.08 * animationProgress)
+                } else if isMovingDown {
+                    return 1.0 - (0.08 * animationProgress)
+                }
+            }
+            return 1.0
+        }()
+        
+        let blurEffect: Double = {
+            if isAnimatingReorder && isMovingDown {
+                return 8.0 * animationProgress
+            }
+            return 0.0
+        }()
+        
+        let offsetEffect: Double = {
+            if isAnimatingReorder {
+                let cardHeight: Double = 108.0
+                let spacing: Double = 14.0
+                let totalCardHeight = cardHeight + spacing
+                
+                if isMovingUp {
+                    return -totalCardHeight * animationProgress
+                } else if isMovingDown {
+                    return totalCardHeight * animationProgress
+                }
+            }
+            return 0.0
+        }()
+        
         return ZStack {
             Rectangle()
                 .fill(.clear)
                 .cornerRadius(20)
-                .glassEffect(.regular.tint(soundtrack.cardColor == .clear ? .clear : soundtrack.cardColor).interactive(), in: .rect(cornerRadius: 20.0))
+                .glassEffect(.regular.tint(cardColor == .clear ? .clear : cardColor).interactive(), in: .rect(cornerRadius: 20.0))
             
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -344,7 +390,7 @@ struct MainScreen: View {
                             audioController.toggleSoundtrackPlayback()
                         }
                     }) {
-                        if soundtrack.cardColor == .clear {
+                        if cardColor == .clear {
                             Image(systemName: isCurrentAndPlaying ? "pause.fill" : "play.fill")
                                 .globalButtonStyle()
                         } else {
@@ -366,8 +412,13 @@ struct MainScreen: View {
                             soundtracksBeingDeleted.remove(soundtrack.id)
                         }
                     }) {
-                        Image(systemName: "minus")
-                            .MinusButtonStyle()
+                        if cardColor == .clear {
+                            Image(systemName: "minus")
+                                .globalButtonStyle()
+                        } else {
+                            Image(systemName: "minus")
+                                .MinusButtonStyle()
+                        }
                     }
                 }
             }
@@ -375,11 +426,9 @@ struct MainScreen: View {
         }
         .frame(height: 108)
         .opacity(soundtracksBeingDeleted.contains(soundtrack.id) ? 0 : 1)
-        .scaleEffect(soundtracksBeingDeleted.contains(soundtrack.id) ? 0.8 : (isMovingUp ? 1.08 : 1.0))
-        .offset(y: isMovingUp ? -16 : (isMovingDown ? 16 : 0))
-        .blur(radius: isMovingDown ? 8 : 0)
-        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isMovingUp)
-        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isMovingDown)
+        .scaleEffect(soundtracksBeingDeleted.contains(soundtrack.id) ? 0.8 : scaleEffect)
+        .offset(y: offsetEffect)
+        .blur(radius: blurEffect)
         .animation(.easeInOut(duration: 0.3), value: soundtracksBeingDeleted)
         .modifier(FlyInCardEffect(isVisible: animateCards, delay: delay))
         .matchedGeometryEffect(id: soundtrack.id, in: cardNamespace)

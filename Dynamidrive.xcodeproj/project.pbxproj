@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		6F0E40172D76FF79004F288E /* AudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6F0E40162D76FF79004F288E /* AudioKit */; };
 		6F6AD3B32E26AD8F004BFC61 /* MapboxMaps in Frameworks */ = {isa = PBXBuildFile; productRef = 6F6AD3B22E26AD8F004BFC61 /* MapboxMaps */; };
+		6F9EA65E2E2AC2DB00DDB5F9 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 6F9EA65D2E2AC2DB00DDB5F9 /* ZIPFoundation */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -72,6 +73,7 @@
 			files = (
 				6F6AD3B32E26AD8F004BFC61 /* MapboxMaps in Frameworks */,
 				6F0E40172D76FF79004F288E /* AudioKit in Frameworks */,
+				6F9EA65E2E2AC2DB00DDB5F9 /* ZIPFoundation in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -142,6 +144,7 @@
 			packageProductDependencies = (
 				6F0E40162D76FF79004F288E /* AudioKit */,
 				6F6AD3B22E26AD8F004BFC61 /* MapboxMaps */,
+				6F9EA65D2E2AC2DB00DDB5F9 /* ZIPFoundation */,
 			);
 			productName = Dynamidrive;
 			productReference = 6FDD4A0E2D74039500F9705A /* Dynamidrive.app */;
@@ -229,6 +232,7 @@
 				6F0E40152D76FF79004F288E /* XCRemoteSwiftPackageReference "AudioKit" */,
 				6F0EC2FB2DE0220D00D96148 /* XCRemoteSwiftPackageReference "VariableBlur" */,
 				6F6AD3B12E26AD8F004BFC61 /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */,
+				6F9EA65C2E2AC2DB00DDB5F9 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6FDD4A0F2D74039500F9705A /* Products */;
@@ -669,6 +673,14 @@
 				minimumVersion = 11.0.0;
 			};
 		};
+		6F9EA65C2E2AC2DB00DDB5F9 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/weichsel/ZIPFoundation.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.19;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -681,6 +693,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6F6AD3B12E26AD8F004BFC61 /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */;
 			productName = MapboxMaps;
+		};
+		6F9EA65D2E2AC2DB00DDB5F9 /* ZIPFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6F9EA65C2E2AC2DB00DDB5F9 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			productName = ZIPFoundation;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

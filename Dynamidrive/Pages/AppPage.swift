@@ -14,5 +14,5 @@ enum AppPage: Equatable {
     case `import`
     case aiUpload
     case layout
-    
+    case importConfirmation
 }
