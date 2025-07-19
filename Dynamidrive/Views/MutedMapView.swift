@@ -82,6 +82,7 @@ struct MutedMapViewContainer: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(red: 15/255.0, green: 15/255.0, blue: 25/255.0))
                 .ignoresSafeArea()
+                .ignoresSafeArea(.keyboard)
                 .scaleEffect(1.5)
             ZStack {
                 // Animated pulsing circle (only if toggle is on)
@@ -97,6 +98,7 @@ struct MutedMapViewContainer: View {
                             .fill(Color.white)
                             .frame(width: 30, height: 30)
                             .opacity(1.0)
+                            .glassEffect(.regular.tint(.clear))
                     }
                     ZStack {
                         Circle()
@@ -121,6 +123,7 @@ struct MutedMapViewContainer: View {
             .opacity(currentPage != .speedDetail ? 1.0 : 0.0)
             .animation(.easeOut(duration: 0.5), value: showMutedLocationIndicator)
         }
+        .ignoresSafeArea(.keyboard)
         .onAppear {
             animatePulse = false
             animateBlackCircle = false

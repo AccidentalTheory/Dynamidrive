@@ -289,6 +289,17 @@ struct MainScreen: View {
                 showLocationDeniedView = true
             }
         }
+        
+        .onChange(of: currentPage) { newPage in
+            // Exit edit mode when switching pages with a 1-second delay
+            if isMainScreenEditMode {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isMainScreenEditMode = false
+                    }
+                }
+            }
+        }
  
         .onReceive(locationHandler.$soundtrackDistances) { _ in
           

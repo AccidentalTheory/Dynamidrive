@@ -182,6 +182,15 @@ struct MasterSettings: View {
                         }
                         .pickerStyle(SegmentedPickerStyle())
                         .padding(.horizontal)
+                        .onChange(of: backgroundType) { newBackgroundType in
+                            // If user switches to gradient, turn off forceClearCardColor
+                            if newBackgroundType == .gradient {
+                                forceClearCardColor = false
+                            } else if newBackgroundType == .map && mapStyle == .muted {
+                                // If user switches back to map and it's set to muted, turn on forceClearCardColor
+                                forceClearCardColor = true
+                            }
+                        }
                         
                         if backgroundType == .map {
                             HStack {
@@ -197,6 +206,15 @@ struct MasterSettings: View {
                                 .accentColor(.white)
                             }
                             .padding(.horizontal)
+                            .onChange(of: mapStyle) { newMapStyle in
+                                // If user selects a map style other than muted, turn off forceClearCardColor
+                                if newMapStyle != .muted {
+                                    forceClearCardColor = false
+                                } else {
+                                    // If user switches back to muted map, turn on forceClearCardColor
+                                    forceClearCardColor = true
+                                }
+                            }
                             // Show toggle only if Muted is selected
                             if mapStyle == .muted {
                                 Toggle("Show Location Indicator", isOn: $showMutedLocationIndicator)
