@@ -133,6 +133,7 @@ struct PageLayout<Content: View>: View {
     let bottomButtons: [PageButton]
     let verticalPadding: CGFloat
     let useCustomFont: Bool
+    let showEdgeGradients: Bool // NEW
     let content: () -> Content
     
     @State private var isScrolled = false
@@ -157,6 +158,7 @@ struct PageLayout<Content: View>: View {
         bottomButtons: [PageButton] = [],
         verticalPadding: CGFloat = 80,
         useCustomFont: Bool = false,
+        showEdgeGradients: Bool = true, // NEW
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.title = title
@@ -167,6 +169,7 @@ struct PageLayout<Content: View>: View {
         self.bottomButtons = Array(bottomButtons.prefix(3))
         self.verticalPadding = verticalPadding
         self.useCustomFont = useCustomFont
+        self.showEdgeGradients = showEdgeGradients // NEW
         self.content = content
     }
     
@@ -205,45 +208,104 @@ struct PageLayout<Content: View>: View {
             .coordinateSpace(name: "scroll")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // Top gradient overlay, only visible when scrolled
-            VStack {
-                LinearGradient(
-                    gradient: Gradient(stops: [
-                        .init(color: Color.black.opacity(0.6), location: 0.0),
-                        .init(color: Color.black.opacity(0.6), location: 0.35),
-                        .init(color: Color.clear, location: 1.0)
-                    ]),
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 220)
-                .opacity(isScrolled ? 1 : 0)
-                .animation(.easeInOut(duration: 0.2), value: isScrolled)
-                Spacer()
-            }
-            .ignoresSafeArea(edges: .top)
-            .allowsHitTesting(false)
-            // Bottom gradient overlay, only visible when not at bottom
-            VStack {
-                Spacer()
-                ZStack(alignment: .bottom) {
+            if showEdgeGradients {
+                VStack {
                     LinearGradient(
                         gradient: Gradient(stops: [
-                            .init(color: Color.clear, location: 0.0),
-                            .init(color: Color.black.opacity(0.6), location: 0.65),
-                            .init(color: Color.black.opacity(0.6), location: 1.0)
+                            .init(color: Color.black.opacity(0.6), location: 0.0),
+                            .init(color: Color.black.opacity(0.6), location: 0.35),
+                            .init(color: Color.clear, location: 1.0)
                         ]),
                         startPoint: .top,
                         endPoint: .bottom
                     )
                     .frame(height: 220)
-                    .ignoresSafeArea(edges: .bottom)
-                    .opacity(!isAtBottom ? 1 : 0)
-                    .animation(.easeInOut(duration: 0.2), value: isAtBottom)
-                    .allowsHitTesting(false)
-                    // Bottom buttons always visible, on top of the gradient
+                    .opacity(isScrolled ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.2), value: isScrolled)
+                    Spacer()
+                }
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
+            }
+            // Bottom gradient overlay, only visible when not at bottom
+            if showEdgeGradients {
+                VStack {
+                    Spacer()
+                    ZStack(alignment: .bottom) {
+                        LinearGradient(
+                            gradient: Gradient(stops: [
+                                .init(color: Color.clear, location: 0.0),
+                                .init(color: Color.black.opacity(0.6), location: 0.65),
+                                .init(color: Color.black.opacity(0.6), location: 1.0)
+                            ]),
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 220)
+                        .ignoresSafeArea(edges: .bottom)
+                        .opacity(!isAtBottom ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.2), value: isAtBottom)
+                        .allowsHitTesting(false)
+                        // Bottom buttons always visible, on top of the gradient
+                        HStack(spacing: buttonSpacing) {
+                            if bottomButtons.count == 1 {
+                                // [empty, button, empty]
+                                Color.clear.frame(width: buttonWidth, height: buttonWidth)
+                                if bottomButtons[0].isMenu {
+                                    bottomButtons[0].label
+                                } else {
+                                    Button(action: bottomButtons[0].action) {
+                                        bottomButtons[0].label
+                                    }
+                                }
+                                Color.clear.frame(width: buttonWidth, height: buttonWidth)
+                            } else if bottomButtons.count == 2 {
+                                // [button1, empty, button2]
+                                if bottomButtons[0].isMenu {
+                                    bottomButtons[0].label
+                                } else {
+                                    Button(action: bottomButtons[0].action) {
+                                        bottomButtons[0].label
+                                    }
+                                }
+                                Color.clear.frame(width: buttonWidth, height: buttonWidth)
+                                if bottomButtons[1].isMenu {
+                                    bottomButtons[1].label
+                                } else {
+                                    Button(action: bottomButtons[1].action) {
+                                        bottomButtons[1].label
+                                    }
+                                }
+                            } else {
+                                // 3 or 0 buttons: default behavior
+                                ForEach(0..<buttonSlotCount, id: \ .self) { idx in
+                                    if idx < bottomButtons.count {
+                                        let button = bottomButtons[idx]
+                                        if button.isMenu {
+                                            button.label
+                                        } else {
+                                            Button(action: button.action) {
+                                                button.label
+                                            }
+                                        }
+                                    } else {
+                                        Color.clear
+                                            .frame(width: buttonWidth, height: buttonWidth)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.bottom, 32)
+                        .padding(.horizontal, horizontalPadding)
+                    }
+                }
+                .ignoresSafeArea(edges: .bottom)
+            } else {
+                // Show only the bottom buttons, no gradient
+                VStack {
+                    Spacer()
                     HStack(spacing: buttonSpacing) {
                         if bottomButtons.count == 1 {
-                            // [empty, button, empty]
                             Color.clear.frame(width: buttonWidth, height: buttonWidth)
                             if bottomButtons[0].isMenu {
                                 bottomButtons[0].label
@@ -254,7 +316,6 @@ struct PageLayout<Content: View>: View {
                             }
                             Color.clear.frame(width: buttonWidth, height: buttonWidth)
                         } else if bottomButtons.count == 2 {
-                            // [button1, empty, button2]
                             if bottomButtons[0].isMenu {
                                 bottomButtons[0].label
                             } else {
@@ -271,8 +332,7 @@ struct PageLayout<Content: View>: View {
                                 }
                             }
                         } else {
-                            // 3 or 0 buttons: default behavior
-                            ForEach(0..<buttonSlotCount, id: \.self) { idx in
+                            ForEach(0..<buttonSlotCount, id: \ .self) { idx in
                                 if idx < bottomButtons.count {
                                     let button = bottomButtons[idx]
                                     if button.isMenu {
@@ -292,8 +352,8 @@ struct PageLayout<Content: View>: View {
                     .padding(.bottom, 32)
                     .padding(.horizontal, horizontalPadding)
                 }
+                .ignoresSafeArea(edges: .bottom)
             }
-            .ignoresSafeArea(edges: .bottom)
             // Header on top
             VStack {
                 // Custom header bar with 3 slots, center is invisible button, text overlays center

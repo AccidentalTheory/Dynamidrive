@@ -383,7 +383,7 @@ struct WelcomeScreen: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
                     
-                    Text("$3/mo.")
+                    Text("Coming Soon")
                         .font(.system(size: 30, weight: .semibold, design: .monospaced))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)

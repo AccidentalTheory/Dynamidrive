@@ -485,7 +485,7 @@ struct CreatePageTip: Tip {
     }
     
     var message: Text? {
-        Text("Upload one file and tracks with different instruments will be generated for you.")
+        Text("Upload one file and tracks with different instruments will be generated for you. This feature is coming soon!")
     }
     
     var image: Image? {
@@ -1465,193 +1465,152 @@ struct ContentView: View {
     
     // MARK: Settings
     private var settingsScreen: some View {
-        ZStack {
-            // Background content
-            ScrollView {
-                VStack(spacing: 20) {
-                    HStack {
-                        Text("Settings")
-                            .font(.system(size: 35, weight: .medium))
-                            .foregroundColor(.white)
-                        Spacer()
+        PageLayout(
+            title: "Settings",
+            leftButtonAction: {},
+            rightButtonAction: {},
+            leftButtonSymbol: "",
+            rightButtonSymbol: "",
+            bottomButtons: [
+                PageButton(label: {
+                    Image(systemName: "arrow.uturn.backward").globalButtonStyle()
+                }, action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showSettingsPage = false
                     }
-                    
-                    // Portrait Gauge Settings
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Portrait Gauge")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(.white)
-                        
-                        Picker("Gauge Style", selection: $portraitGaugeStyle) {
-                            Text("Full Circle").tag("fullCircle")
-                            Text("Separated Arc").tag("separatedArc")
-                        }
-                        .pickerStyle(.segmented)
-                        
-                        if portraitGaugeStyle == "separatedArc" {
-                            Toggle("Show Min/Max Values", isOn: Binding(
-                                get: { portraitShowMinMax },
-                                set: { newValue in
-                                    portraitShowMinMax = newValue
-                                    if syncCircularGaugeSettings && landscapeGaugeStyle == "circular" {
-                                        landscapeShowMinMax = newValue
-                                    }
-                                }
-                            ))
-                            .foregroundColor(.white)
-                            .font(.system(size: 16))
-                        }
-                        
-                        Toggle("Show Current Speed", isOn: Binding(
-                            get: { showPortraitSpeed },
+                })
+            ],
+            verticalPadding: 0
+        ) {
+            VStack(spacing: 20) {
+                // Portrait Gauge Settings
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Portrait Gauge")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.white)
+                    Picker("Gauge Style", selection: $portraitGaugeStyle) {
+                        Text("Full Circle").tag("fullCircle")
+                        Text("Separated Arc").tag("separatedArc")
+                    }
+                    .pickerStyle(.segmented)
+                    if portraitGaugeStyle == "separatedArc" {
+                        Toggle("Show Min/Max Values", isOn: Binding(
+                            get: { portraitShowMinMax },
                             set: { newValue in
-                                showPortraitSpeed = newValue
+                                portraitShowMinMax = newValue
                                 if syncCircularGaugeSettings && landscapeGaugeStyle == "circular" {
-                                    landscapeShowCurrentSpeed = newValue
+                                    landscapeShowMinMax = newValue
                                 }
                             }
                         ))
                         .foregroundColor(.white)
                         .font(.system(size: 16))
                     }
-                    .padding()
-                    .background(GlobalCardAppearance)
-                    
-                    // Landscape Gauge Settings
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Landscape Gauge")
-                            .font(.system(size: 20, weight: .semibold))
+                    Toggle("Show Current Speed", isOn: Binding(
+                        get: { showPortraitSpeed },
+                        set: { newValue in
+                            showPortraitSpeed = newValue
+                            if syncCircularGaugeSettings && landscapeGaugeStyle == "circular" {
+                                landscapeShowCurrentSpeed = newValue
+                            }
+                        }
+                    ))
+                    .foregroundColor(.white)
+                    .font(.system(size: 16))
+                }
+                .padding()
+                .background(GlobalCardAppearance)
+                .padding(.top, 60)
+               
+                // Landscape Gauge Settings
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Landscape Gauge")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.white)
+                    Picker("Gauge Style", selection: Binding(
+                        get: { landscapeGaugeStyle },
+                        set: { newValue in
+                            landscapeGaugeStyle = newValue
+                            if newValue == "circular" && syncCircularGaugeSettings {
+                                landscapeShowMinMax = portraitShowMinMax
+                                landscapeShowCurrentSpeed = showPortraitSpeed
+                            }
+                        }
+                    )) {
+                        Text("Line").tag("line")
+                        Text("Circular").tag("circular")
+                    }
+                    .pickerStyle(.segmented)
+                    if landscapeGaugeStyle == "line" {
+                        Picker("Indicator Style", selection: $landscapeIndicatorStyle) {
+                            Text("Dot").tag("line")
+                            Text("Fill").tag("fill")
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    Toggle("Show Min/Max Values", isOn: Binding(
+                        get: { landscapeShowMinMax },
+                        set: { newValue in
+                            landscapeShowMinMax = newValue
+                            if syncCircularGaugeSettings && landscapeGaugeStyle == "circular" {
+                                portraitShowMinMax = newValue
+                            }
+                        }
+                    ))
+                    .foregroundColor(.white)
+                    .font(.system(size: 16))
+                    Toggle("Show Current Speed", isOn: Binding(
+                        get: { landscapeShowCurrentSpeed },
+                        set: { newValue in
+                            landscapeShowCurrentSpeed = newValue
+                            if syncCircularGaugeSettings && landscapeGaugeStyle == "circular" {
+                                showPortraitSpeed = newValue
+                            }
+                        }
+                    ))
+                    .foregroundColor(.white)
+                    .font(.system(size: 16))
+                    if landscapeGaugeStyle == "line" {
+                        Toggle("Show Soundtrack Title", isOn: $landscapeShowSoundtrackTitle)
                             .foregroundColor(.white)
-                        
-                        Picker("Gauge Style", selection: Binding(
-                            get: { landscapeGaugeStyle },
+                            .font(.system(size: 16))
+                    }
+                    if landscapeGaugeStyle == "circular" {
+                        Toggle("Sync with Portrait Settings", isOn: Binding(
+                            get: { syncCircularGaugeSettings },
                             set: { newValue in
-                                landscapeGaugeStyle = newValue
-                                if newValue == "circular" && syncCircularGaugeSettings {
-                                    // Sync portrait settings to landscape when switching to circular
+                                syncCircularGaugeSettings = newValue
+                                if newValue {
                                     landscapeShowMinMax = portraitShowMinMax
                                     landscapeShowCurrentSpeed = showPortraitSpeed
                                 }
                             }
-                        )) {
-                            Text("Line").tag("line")
-                            Text("Circular").tag("circular")
-                        }
-                        .pickerStyle(.segmented)
-                        
-                        if landscapeGaugeStyle == "line" {
-                            Picker("Indicator Style", selection: $landscapeIndicatorStyle) {
-                                Text("Dot").tag("line")
-                                Text("Fill").tag("fill")
-                            }
-                            .pickerStyle(.segmented)
-                        }
-                        
-                        Toggle("Show Min/Max Values", isOn: Binding(
-                            get: { landscapeShowMinMax },
-                            set: { newValue in
-                                landscapeShowMinMax = newValue
-                                if syncCircularGaugeSettings && landscapeGaugeStyle == "circular" {
-                                    portraitShowMinMax = newValue
-                                }
-                            }
                         ))
                         .foregroundColor(.white)
                         .font(.system(size: 16))
-                        
-                        Toggle("Show Current Speed", isOn: Binding(
-                            get: { landscapeShowCurrentSpeed },
-                            set: { newValue in
-                                landscapeShowCurrentSpeed = newValue
-                                if syncCircularGaugeSettings && landscapeGaugeStyle == "circular" {
-                                    showPortraitSpeed = newValue
-                                }
-                            }
-                        ))
-                        .foregroundColor(.white)
-                        .font(.system(size: 16))
-                        
-                        if landscapeGaugeStyle == "line" {
-                            Toggle("Show Soundtrack Title", isOn: $landscapeShowSoundtrackTitle)
-                                .foregroundColor(.white)
-                                .font(.system(size: 16))
-                        }
-                        
-                        if landscapeGaugeStyle == "circular" {
-                            Toggle("Sync with Portrait Settings", isOn: Binding(
-                                get: { syncCircularGaugeSettings },
-                                set: { newValue in
-                                    syncCircularGaugeSettings = newValue
-                                    if newValue {
-                                        // When enabling sync, copy portrait settings to landscape
-                                        landscapeShowMinMax = portraitShowMinMax
-                                        landscapeShowCurrentSpeed = showPortraitSpeed
-                                    }
-                                }
-                            ))
-                            .foregroundColor(.white)
-                            .font(.system(size: 16))
-                        }
                     }
-                    .padding()
-                    .background(GlobalCardAppearance)
-                   
-                    
-                    // General Settings
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("General")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(.white)
-                        
-                        Toggle("Use Black Background", isOn: $useBlackBackground)
-                            .foregroundColor(.white)
-                            .font(.system(size: 16))
-                        
-                        Picker("Gauge Font Style", selection: $gaugeFontStyle) {
-                            Text("Default").tag("default")
-                            Text("Rounded").tag("rounded")
-                        }
-                        .pickerStyle(.segmented)
-                    }
-                    .padding()
-                    .background(GlobalCardAppearance)
-                    
                 }
                 .padding()
-            }
-
-            // Empty stack between content and buttons
-            ZStack {
-            }
-            .frame(height: 150)
-            .allowsHitTesting(false)
-
-
-            // Fixed bottom controls
-            VStack {
-                Spacer()
-                HStack(spacing: 80) {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showSettingsPage = false
-                        }
-                    }) {
-                        Image(systemName: "arrow.uturn.backward")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white)
-                            .frame(width: 50, height: 50)
-                            .background(Color.white.opacity(0.2))
-                            .clipShape(Circle())
+                .background(GlobalCardAppearance)
+                // General Settings
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("General")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.white)
+                    Toggle("Use Black Background", isOn: $useBlackBackground)
+                        .foregroundColor(.white)
+                        .font(.system(size: 16))
+                    Picker("Gauge Font Style", selection: $gaugeFontStyle) {
+                        Text("Default").tag("default")
+                        Text("Rounded").tag("rounded")
                     }
+                    .pickerStyle(.segmented)
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-                .background(Color.clear)
+                .padding()
+                .background(GlobalCardAppearance)
             }
-            .ignoresSafeArea(.keyboard)
-            .zIndex(2)
+            .padding()
         }
-        .zIndex(5)
     }
     
     

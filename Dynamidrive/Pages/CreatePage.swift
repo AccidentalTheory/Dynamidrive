@@ -1,5 +1,3 @@
-
-
 import SwiftUI
 import AVFoundation
 import UniformTypeIdentifiers
@@ -45,6 +43,16 @@ struct CreatePage: View {
     @State private var importError: String? = nil
     // Add back the local state for the sheet:
     @State private var showImportConfirmation = false
+    @State private var showAIComingSoonAlert = false
+    @State private var aiAlertIndex = 0 // Track which variation to show
+    private let aiAlertVariations = [
+        "AI features are coming soon in a future update.",
+        "These AI features aren't ready yet, please come back later!",
+        "The AI features STILL aren't ready!",
+        "Please be patient, the AI stuff is pretty difficult to make!",
+        "Pressing the button won't make this go any faster.",
+        "You really like pressing that button, don't you?"
+    ]
 
     private struct ParsedTrack {
         let displayName: String
@@ -75,11 +83,13 @@ struct CreatePage: View {
                     }
                 }),
                 PageButton(label: {
-                    Image(systemName: "sparkles").globalButtonStyle()
+                    Image(systemName: "sparkles").globalButtonStyle().opacity(0.5) // visually disabled
                 }, action: {
-                    showAIUploadPage = true
-                    currentPage = .aiUpload
-                    previousPage = .create
+                    UINotificationFeedbackGenerator().notificationOccurred(.error)
+                    if aiAlertIndex < aiAlertVariations.count - 1 {
+                        aiAlertIndex += 1
+                    }
+                    showAIComingSoonAlert = true
                 })
             ]
         ) {
@@ -107,6 +117,9 @@ struct CreatePage: View {
             set: { if !$0 { importError = nil } }
         )) {
             Alert(title: Text("Import Error"), message: Text(importError ?? "Unknown error"), dismissButton: .default(Text("OK")))
+        }
+        .alert(isPresented: $showAIComingSoonAlert) {
+            Alert(title: Text(aiAlertVariations[aiAlertIndex]), dismissButton: .default(Text("OK")))
         }
         .sheet(isPresented: $showImportConfirmation) {
             ImportConfirmationPage(

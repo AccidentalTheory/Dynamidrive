@@ -31,6 +31,7 @@ struct SpeedDetailPage: View {
                         .fill(.black)
                         .ignoresSafeArea()
                 }
+                // Gauge content is now fully outside PageLayout
                 VStack {
                     Spacer()
                     if isLandscape {
@@ -45,29 +46,32 @@ struct SpeedDetailPage: View {
                     Spacer()
                 }
                 .animation(.easeInOut(duration: 1.0), value: animatedSpeed)
-                VStack {
-                    Spacer()
-                    HStack(spacing: 20) {
-                        Button(action: {
+                // PageLayout is used ONLY for the bottom button bar
+                PageLayout(
+                    title: "",
+                    leftButtonAction: {},
+                    rightButtonAction: {},
+                    leftButtonSymbol: "",
+                    rightButtonSymbol: "",
+                    bottomButtons: areButtonsVisible ? [
+                        PageButton(label: {
+                            Image(systemName: "arrow.uturn.backward").globalButtonStyle()
+                        }, action: {
                             withAnimation(.easeInOut(duration: 0.5)) {
                                 showSpeedDetailPage = false
                             }
-                        }) {
-                            Image(systemName: "arrow.uturn.backward")
-                                .globalButtonStyle()
-                        }
-                        Button(action: {
+                        }),
+                        PageButton(label: {
+                            Image(systemName: "gearshape").globalButtonStyle()
+                        }, action: {
                             withAnimation(.easeInOut(duration: 0.5)) {
                                 showSettingsPage = true
                             }
-                        }) {
-                            Image(systemName: "gearshape")
-                                .globalButtonStyle()
-                        }
-                    }
-                    .padding(.bottom, 20)
-                    .opacity(areButtonsVisible ? 1 : 0)
-                    .animation(areButtonsVisible ? .easeInOut(duration: 0.3) : .easeInOut(duration: 0.5), value: areButtonsVisible)
+                        })
+                    ] : [],
+                    showEdgeGradients: false // Hide gradients only on this page
+                ) {
+                    EmptyView() // No content in PageLayout
                 }
             }
             .contentShape(Rectangle())
