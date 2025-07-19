@@ -96,10 +96,12 @@ struct MasterSettings: View {
                 }
             },
             rightButtonAction: {
-                currentPage = .layout
+                if let url = URL(string: "https://docs.google.com/forms/d/e/1FAIpQLScfTst50SemFPtMZBWX17CqOQPK5pGM8SwJ3m3LbIlYcnWLpg/viewform?usp=dialog") {
+                    UIApplication.shared.open(url)
+                }
             },
             leftButtonSymbol: "globe",
-            rightButtonSymbol: "ant.fill",
+            rightButtonSymbol: "exclamationmark.bubble",
             bottomButtons: [
                 PageButton(
                     label: {
