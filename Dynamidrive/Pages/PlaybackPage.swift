@@ -104,11 +104,7 @@ struct PlaybackPage: View {
                         VStack {
                             if currentHeight > 100 && currentHeight <= 250 {
                             
-                                Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
-                                    .font(.system(size: 35, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .minimumScaleFactor(0.5)
-                                    .lineLimit(1)
+                                ScrollingTitleView(title: pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
                                     .frame(maxWidth: UIScreen.main.bounds.width * 0.8)
                                     .padding(.top, 28)
                                 
@@ -163,9 +159,8 @@ struct PlaybackPage: View {
                         VStack(spacing: 20) {
                             // Header
                             HStack {
-                                Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
-                                    .font(.system(size: 35, weight: .bold))
-                                    .foregroundColor(.white)
+                                ScrollingTitleView(title: pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 Spacer()
                                 Button(action: {
                                     isExporting = true
@@ -497,6 +492,62 @@ struct PlaybackPage: View {
            // .padding(.horizontal)
             .padding(.bottom, 8)
             .background(Color.clear)
+        }
+    }
+}
+
+struct ScrollingTitleView: View {
+    let title: String
+    @State private var isScrolling = false
+    @State private var textWidth: CGFloat = 0
+    @State private var containerWidth: CGFloat = 0
+    
+    var body: some View {
+        GeometryReader { geometry in
+            HStack(spacing: 0) {
+                Text(title)
+                    .font(.system(size: 35, weight: .bold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                    .background(
+                        GeometryReader { textGeometry in
+                            Color.clear
+                                .onAppear {
+                                    textWidth = textGeometry.size.width
+                                    containerWidth = geometry.size.width
+                                    startScrollingIfNeeded()
+                                }
+                                .onChange(of: title) { _, _ in
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        textWidth = textGeometry.size.width
+                                        containerWidth = geometry.size.width
+                                        startScrollingIfNeeded()
+                                    }
+                                }
+                        }
+                    )
+                    .offset(x: isScrolling ? -textWidth - 50 : 0)
+                    .animation(
+                        isScrolling ? 
+                        .linear(duration: Double(textWidth / 30)) // Adjust speed based on text length
+                        .repeatForever(autoreverses: false) : 
+                        .easeInOut(duration: 0.3),
+                        value: isScrolling
+                    )
+            }
+            .clipped()
+        }
+        .frame(height: 42) // Fixed height for the title
+    }
+    
+    private func startScrollingIfNeeded() {
+        // Only scroll if text is wider than container
+        if textWidth > containerWidth {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                isScrolling = true
+            }
+        } else {
+            isScrolling = false
         }
     }
 }

@@ -282,7 +282,7 @@ struct CreatePage: View {
     }
 
     private func baseAudioPicker() -> some View {
-        DocumentPicker { url in
+        AudioDocumentPicker { url in
             if let storedURL = storeAudioFile(url, name: "Soundtrack\(soundtracks.count + 1)Base_\(UUID().uuidString)") {
                 if let tempPlayer = try? AVAudioPlayer(contentsOf: storedURL) {
                     let duration = tempPlayer.duration
@@ -395,7 +395,7 @@ struct CreatePage: View {
     }
 
     private func dynamicAudioPicker(index: Int) -> some View {
-        DocumentPicker { url in
+        AudioDocumentPicker { url in
             if let storedURL = storeAudioFile(url, name: "Soundtrack\(soundtracks.count + 1)Audio\(index + 1)_\(UUID().uuidString)") {
                 if let tempPlayer = try? AVAudioPlayer(contentsOf: storedURL) {
                     let duration = tempPlayer.duration

@@ -517,8 +517,6 @@ struct ContentView: View {
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var hasCompletedInitialLoad = false
     @State private var isReturningFromConfigure = false
-    @State private var createPageRemovalDirection: Edge = .leading
-    @State private var volumePageRemovalDirection: Edge = .leading
     @AppStorage("mapStyle") private var mapStyle: MapStyle = .standard
     @AppStorage("backgroundType") private var backgroundType: BackgroundType = .map
     @AppStorage("hasGrantedLocationPermission") private var hasGrantedLocationPermission = false
@@ -729,11 +727,10 @@ struct ContentView: View {
                         case .loading:
                             loadingScreen
                                 .zIndex(5)
+                                .transition(.opacity)
                         case .main:
                             mainScreen
-                                .transition(.asymmetric(
-                                    insertion: previousPage == .masterSettings ? .move(edge: .leading) : (previousPage == .import ? .move(edge: .trailing) : (isReturningFromConfigure ? .move(edge: .trailing) : (previousPage == .create || previousPage == .playback ? .move(edge: .leading) : .move(edge: .trailing)))),
-                                    removal: .move(edge: .leading)))
+                                .transition(.opacity)
                         case .create:
                             CreatePage(
                                 showCreatePage: $showCreatePage,
@@ -765,20 +762,19 @@ struct ContentView: View {
                                 saveSoundtracks: saveSoundtracks
                             )
                             .environmentObject(audioController)
-                            .transition(.asymmetric(
-                                insertion: previousPage == .import ? .move(edge: .leading) : .move(edge: createPageInsertionDirection),
-                                removal: .move(edge: createPageRemovalDirection)))
+                            .transition(.opacity)
                         case .configure:
                             configureScreen
-                                .transition(.asymmetric(insertion: .move(edge: configurePageInsertionDirection), removal: .move(edge: configurePageRemovalDirection)))
+                                .transition(.opacity)
                         case .volume:
                             volumeScreen
-                                .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: volumePageRemovalDirection)))
+                                .transition(.opacity)
                         case .playback:
                             EmptyView()
+                                .transition(.opacity)
                         case .edit:
                             EditPage(showEditPage: $showEditPage)
-                                .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
+                                .transition(.opacity)
                         case .speedDetail:
                             SpeedDetailPage(
                                 showSpeedDetailPage: $showSpeedDetailPage,
@@ -802,46 +798,29 @@ struct ContentView: View {
                                 startInactivityTimer: startInactivityTimer,
                                 invalidateInactivityTimer: invalidateInactivityTimer
                             )
-                            .transition(.asymmetric(
-                                insertion: previousPage == .playback ? .move(edge: .trailing) : .move(edge: .leading),
-                                removal: showSettingsPage ? .move(edge: .leading) : .move(edge: .trailing)
-                            ))
+                            .transition(.opacity)
                         case .settings:
                             settingsScreen
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: .trailing),
-                                    removal: .move(edge: .trailing)
-                                ))
+                                .transition(.opacity)
                         case .import:
                             importScreen
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: .trailing),
-                                    removal: currentPage == .create ? .move(edge: .trailing) : .move(edge: .leading)
-                                ))
+                                .transition(.opacity)
                         case .aiUpload:
                             aiUploadScreen
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: .trailing),
-                                    removal: currentPage == .import ? .move(edge: .trailing) : .move(edge: .leading)
-                                ))
+                                .transition(.opacity)
                         case .masterSettings:
                             MasterSettings(currentPage: $currentPage)
                                 .environmentObject(locationHandler)
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: .trailing),
-                                    removal: previousPage == .layout ? .move(edge: .trailing) : .move(edge: .leading)
-                                ))
+                                .transition(.opacity)
                         case .layout:
                             LayoutPage(showingLayoutPage: Binding(
                                 get: { currentPage == .layout },
-                                set: { show in if !show { currentPage = .masterSettings } }
+                                set: { show in if (!show) { currentPage = .masterSettings } }
                             ))
-                            .transition(.asymmetric(
-                                insertion: previousPage == .masterSettings ? .move(edge: .trailing) : .move(edge: .leading),
-                                removal: .move(edge: .leading)
-                            ))
+                            .transition(.opacity)
                         case .importConfirmation:
                             EmptyView()
+                                .transition(.opacity)
                         }
                     }
                     .zIndex(9)
@@ -877,9 +856,6 @@ struct ContentView: View {
                     hasCompletedInitialLoad = true
                     currentPage = .main
                     isReturningFromConfigure = false
-                    createPageRemovalDirection = .leading
-                    volumePageRemovalDirection = .leading
-                    configurePageInsertionDirection = .trailing
                     
                     
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -891,10 +867,8 @@ struct ContentView: View {
             }
         }
         .onChange(of: showCreatePage, initial: false) { _, newValue in
-            print("showCreatePage changed to: \(newValue), currentPage: \(currentPage), createPageRemovalDirection: \(createPageRemovalDirection)")
-            createPageRemovalDirection = newValue ? .leading : .trailing
-            print("createPageRemovalDirection set to: \(createPageRemovalDirection)")
-            withAnimation(.easeInOut(duration: 0.5)) {
+            print("showCreatePage changed to: \(newValue), currentPage: \(currentPage)")
+            withAnimation(.easeInOut(duration: 0.2)) {
                 let oldPage = currentPage
                 previousPage = newValue ? oldPage : .create
                 currentPage = newValue ? .create : .main
@@ -904,48 +878,24 @@ struct ContentView: View {
         }
         .onChange(of: showConfigurePage, initial: false) { _, newValue in
             print("showConfigurePage changed to: \(newValue), currentPage: \(currentPage), showCreatePage: \(showCreatePage)")
-            
-            if !newValue && currentPage == .configure && showCreatePage {
-                configurePageRemovalDirection = .trailing
-                createPageInsertionDirection = .leading
-                createPageRemovalDirection = .leading
-                print("Set directions before transition - configurePageRemovalDirection: \(configurePageRemovalDirection), createPageInsertionDirection: \(createPageInsertionDirection)")
-            }
-            
-            withAnimation(.easeInOut(duration: 0.5)) {
+            withAnimation(.easeInOut(duration: 0.2)) {
                 let oldPage = currentPage
-                print("oldPage: \(oldPage)")
                 isReturningFromConfigure = !newValue
                 previousPage = newValue ? oldPage : .configure
                 if newValue {
                     currentPage = .configure
-                    print("Navigating to configurePage - configurePageInsertionDirection: \(configurePageInsertionDirection), configurePageRemovalDirection: \(configurePageRemovalDirection)")
                 } else {
                     if oldPage == .configure && showCreatePage {
                         currentPage = .create
-                        print("During transition to createPage - configurePageRemovalDirection: \(configurePageRemovalDirection), createPageInsertionDirection: \(createPageInsertionDirection)")
                     } else {
                         currentPage = .main
-                        print("Returning to main - configurePageRemovalDirection: \(configurePageRemovalDirection)")
                     }
                 }
-                print("After showConfigurePage change: currentPage: \(currentPage), showCreatePage: \(showCreatePage)")
             }
-            
-            if !newValue && currentPage == .create {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    configurePageRemovalDirection = .leading
-                    createPageInsertionDirection = .trailing
-                    createPageRemovalDirection = .leading
-                    print("Reset directions after transition - configurePageRemovalDirection: \(configurePageRemovalDirection), createPageInsertionDirection: \(createPageInsertionDirection)")
-                }
-            }
+            print("After showConfigurePage change: currentPage: \(currentPage), showCreatePage: \(showCreatePage)")
         }
         .onChange(of: showVolumePage, initial: false) { oldValue, newValue in
-            volumePageRemovalDirection = newValue ? .leading : .trailing
-            configurePageInsertionDirection = newValue ? .trailing : .leading
-            print("volumePageRemovalDirection set to: \(volumePageRemovalDirection), configurePageInsertionDirection set to: \(configurePageInsertionDirection)")
-            withAnimation(.easeInOut(duration: 0.5)) {
+            withAnimation(.easeInOut(duration: 0.2)) {
                 let oldPage = currentPage
                 previousPage = newValue ? oldPage : .volume
                 currentPage = newValue ? .volume : .configure
@@ -955,7 +905,7 @@ struct ContentView: View {
             if !newValue {
                 // Only set currentPage to .main if Speed Detail is not open
                 if !showSpeedDetailPage {
-                    withAnimation(.easeInOut(duration: 0.5)) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
                         currentPage = previousPage == .volume ? .volume : .main
                     }
                 }
@@ -992,13 +942,13 @@ struct ContentView: View {
             if newValue {
                 
                 playbackPageRemovalDirection = .leading
-                withAnimation(.easeInOut(duration: 0.5)) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     previousPage = currentPage
                     currentPage = .edit
                 }
             } else {
                 
-                withAnimation(.easeInOut(duration: 0.5)) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     previousPage = .edit
                     currentPage = .playback
                     playbackPageInsertionDirection = .leading
@@ -1015,12 +965,12 @@ struct ContentView: View {
                 wasPlaybackSheetOpenForSpeedDetail = showPlaybackPage
                 showPlaybackPage = false
                 playbackPageRemovalDirection = .leading
-                withAnimation(.easeInOut(duration: 0.5)) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     previousPage = currentPage
                     currentPage = .speedDetail
                 }
             } else {
-                withAnimation(.easeInOut(duration: 0.5)) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     previousPage = .speedDetail
                     currentPage = .main // Go to main first, then reopen sheet if needed
                     playbackPageInsertionDirection = .leading
@@ -1039,7 +989,7 @@ struct ContentView: View {
             }
         }
         .onChange(of: showSettingsPage, initial: false) { _, newValue in
-            withAnimation(.easeInOut(duration: 0.5)) {
+            withAnimation(.easeInOut(duration: 0.2)) {
                 if newValue {
                     previousPage = currentPage
                     currentPage = .settings
@@ -1053,14 +1003,14 @@ struct ContentView: View {
                 setDeviceOrientation(.portrait)
             }
             if newPage == .masterSettings {
-                withAnimation(.easeInOut(duration: 0.5)) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     previousPage = oldPage
                 }
             } else if newPage == .main && oldPage == .masterSettings {
-                withAnimation(.easeInOut(duration: 0.5)) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     previousPage = .masterSettings
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        withAnimation(.easeInOut(duration: 0.5)) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
                             currentPage = .main
                         }
                     }
@@ -1405,7 +1355,7 @@ struct ContentView: View {
                     Spacer()
                     HStack(spacing: 20) {
                         Button(action: {
-                            withAnimation(.easeInOut(duration: 0.5)) {
+                            withAnimation(.easeInOut(duration: 0.2)) {
                                 showSpeedDetailPage = false
                             }
                         }) {
@@ -1414,7 +1364,7 @@ struct ContentView: View {
                         }
                         
                         Button(action: {
-                            withAnimation(.easeInOut(duration: 0.5)) {
+                            withAnimation(.easeInOut(duration: 0.2)) {
                                 showSettingsPage = true
                             }
                         }) {
@@ -1642,7 +1592,7 @@ struct ContentView: View {
                 Spacer()
                 HStack(spacing: 80) {
                     Button(action: {
-                        withAnimation(.easeInOut(duration: 0.5)) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
                             showSettingsPage = false
                         }
                     }) {
@@ -2062,7 +2012,7 @@ struct ContentView: View {
         selectedCardColor = .clear // Reset color selection
         
         // Navigate back to mainScreen
-        withAnimation(.easeInOut(duration: 0.5)) {
+        withAnimation(.easeInOut(duration: 0.2)) {
             showConfigurePage = false
             showCreatePage = false
         }
@@ -2247,7 +2197,7 @@ struct ContentView: View {
             saveSoundtracks()
             
             // Reset states and navigate to main page
-            withAnimation(.easeInOut(duration: 0.5)) {
+            withAnimation(.easeInOut(duration: 0.2)) {
                 importedSoundtrackURL = nil
                 resetCreatePage()
                 showImportPage = false
@@ -2277,7 +2227,7 @@ struct ContentView: View {
                     
                     Button(action: {
                         handleImport()
-                        withAnimation(.easeInOut(duration: 0.5)) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
                             previousPage = .import
                             currentPage = .main
                         }
@@ -2309,7 +2259,7 @@ struct ContentView: View {
                 HStack(spacing: 80) {
                     Button(action: {
                         importedSoundtrackURL = nil
-                        withAnimation(.easeInOut(duration: 0.5)) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
                             previousPage = .import
                             currentPage = .create
                         }
@@ -2434,7 +2384,7 @@ struct ContentView: View {
                 Spacer()
                 HStack(spacing: 240) {
                     Button(action: {
-                        withAnimation(.easeInOut(duration: 0.5)) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
                             showAIUploadPage = false
                             currentPage = .create
                         }
@@ -2565,6 +2515,7 @@ enum BlurDirection {
     case blurredBottomClearTop
 }
 
+// MARK: - Document Pickers
 struct DocumentPicker: UIViewControllerRepresentable {
     var onPick: (URL) -> Void
     
@@ -2584,6 +2535,38 @@ struct DocumentPicker: UIViewControllerRepresentable {
         var parent: DocumentPicker
         
         init(_ parent: DocumentPicker) {
+            self.parent = parent
+        }
+        
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            if let url = urls.first {
+                parent.onPick(url)
+            }
+        }
+        
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {}
+    }
+}
+
+struct AudioDocumentPicker: UIViewControllerRepresentable {
+    var onPick: (URL) -> Void
+    
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.audio, UTType.mp3, UTType.wav], asCopy: true)
+        picker.delegate = context.coordinator
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        var parent: AudioDocumentPicker
+        
+        init(_ parent: AudioDocumentPicker) {
             self.parent = parent
         }
         
