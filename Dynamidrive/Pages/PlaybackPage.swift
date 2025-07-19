@@ -24,6 +24,7 @@ struct PlaybackPage: View {
     @State private var isCompactHeight = false
     @State private var currentHeight: CGFloat = .infinity
     @State private var isExporting = false
+    @State private var isClockActive = false
     
     @State private var minSpeedScale: [Int: CGFloat] = [:]
     @State private var maxSpeedScale: [Int: CGFloat] = [:]
@@ -104,8 +105,13 @@ struct PlaybackPage: View {
                         VStack {
                             if currentHeight > 100 && currentHeight <= 250 {
                             
-                                ScrollingTitleView(title: pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
+                                Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
+                                    .font(.system(size: 35, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.5)
                                     .frame(maxWidth: UIScreen.main.bounds.width * 0.8)
+                                    .multilineTextAlignment(.center)
                                     .padding(.top, 28)
                                 
                                 playbackButtons()
@@ -159,7 +165,11 @@ struct PlaybackPage: View {
                         VStack(spacing: 20) {
                             // Header
                             HStack {
-                                ScrollingTitleView(title: pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
+                                Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
+                                    .font(.system(size: 35, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.5)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 Spacer()
                                 Button(action: {
@@ -391,38 +401,23 @@ struct PlaybackPage: View {
             Spacer()
             HStack(spacing: 80) {
                 if audioController.isSoundtrackPlaying {
-                    // Hush toggle replaces rewind when playing
+                    // Clock button when playing
                     Button(action: {
                         let impact = UIImpactFeedbackGenerator(style: .medium)
                         impact.impactOccurred()
-                        if audioController.isHushActive {
-                            audioController.deactivateHush()
-                        } else {
-                            audioController.activateHush()
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            isClockActive.toggle()
                         }
                     }) {
-                        if audioController.isHushActive {
-                            Image(systemName: "ear.badge.waveform")
-                                .font(.system(size: 24))
-                                .foregroundColor(.yellow)
-                                .frame(width: 50, height: 50)
-                                .background(Color.white.opacity(0.2))
-                                .clipShape(Circle())
-                                .glassEffect(.regular.tint(.clear).interactive())
-                                .symbolEffect(
-                                    .variableColor.iterative.dimInactiveLayers.nonReversing,
-                                    options: .repeat(.periodic(delay: 2.0)),
-                                    value: true
-                                )
-                        } else {
-                            Image(systemName: "ear.badge.waveform")
-                                .font(.system(size: 24))
-                                .foregroundColor(.white)
-                                .frame(width: 50, height: 50)
-                                .background(Color.white.opacity(0.2))
-                                .clipShape(Circle())
-                                .glassEffect(.regular.tint(.clear).interactive())
-                        }
+                        Image(systemName: "clock.badge.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(isClockActive ? .red : .white)
+                            .symbolRenderingMode(.multicolor)
+                            .frame(width: 50, height: 50)
+                            .background(Color.white.opacity(0.2))
+                            .clipShape(Circle())
+                            .glassEffect(.regular.tint(isClockActive ? .white : .clear).interactive())
+
                     }
                 } else {
                     // Rewind button when not playing
@@ -496,58 +491,4 @@ struct PlaybackPage: View {
     }
 }
 
-struct ScrollingTitleView: View {
-    let title: String
-    @State private var isScrolling = false
-    @State private var textWidth: CGFloat = 0
-    @State private var containerWidth: CGFloat = 0
-    
-    var body: some View {
-        GeometryReader { geometry in
-            HStack(spacing: 0) {
-                Text(title)
-                    .font(.system(size: 35, weight: .bold))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                    .background(
-                        GeometryReader { textGeometry in
-                            Color.clear
-                                .onAppear {
-                                    textWidth = textGeometry.size.width
-                                    containerWidth = geometry.size.width
-                                    startScrollingIfNeeded()
-                                }
-                                .onChange(of: title) { _, _ in
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                        textWidth = textGeometry.size.width
-                                        containerWidth = geometry.size.width
-                                        startScrollingIfNeeded()
-                                    }
-                                }
-                        }
-                    )
-                    .offset(x: isScrolling ? -textWidth - 50 : 0)
-                    .animation(
-                        isScrolling ? 
-                        .linear(duration: Double(textWidth / 30)) // Adjust speed based on text length
-                        .repeatForever(autoreverses: false) : 
-                        .easeInOut(duration: 0.3),
-                        value: isScrolling
-                    )
-            }
-            .clipped()
-        }
-        .frame(height: 42) // Fixed height for the title
-    }
-    
-    private func startScrollingIfNeeded() {
-        // Only scroll if text is wider than container
-        if textWidth > containerWidth {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                isScrolling = true
-            }
-        } else {
-            isScrolling = false
-        }
-    }
-}
+

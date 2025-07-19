@@ -434,6 +434,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     let audioController: AudioController
     let locationHandler = LocationHandler()
     
+    // Add a static property to track current page for orientation control
+    static var currentPage: AppPage = .loading
+    
     override init() {
         self.audioController = AudioController(locationHandler: locationHandler)
         super.init()
@@ -443,6 +446,16 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // LocationHandler will check hasGrantedLocationPermission internally
         locationHandler.startLocationUpdates()
         return true
+    }
+    
+    // Add this method to control orientation dynamically
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        // Only allow rotation on SpeedDetailPage
+        if AppDelegate.currentPage == .speedDetail {
+            return .allButUpsideDown
+        } else {
+            return .portrait
+        }
     }
 }
 
@@ -603,6 +616,7 @@ struct ContentView: View {
     @State private var animateCards: Bool = false // Start invisible
     @State private var hasAnimatedOnce: Bool = false
     @State private var wasPlaybackSheetOpenForSpeedDetail: Bool = false // Track if playback sheet was open before speed detail
+    @State private var wasPlaybackSheetOpenForEdit: Bool = false // Track if playback sheet was open before edit page
     @State private var selectedCardColor: Color = .clear // New state for card color selection
     @State private var importSoundtrackTitle: String = ""
     @State private var importTracks: [ImportTrack] = []
@@ -773,8 +787,14 @@ struct ContentView: View {
                             EmptyView()
                                 .transition(.opacity)
                         case .edit:
-                            EditPage(showEditPage: $showEditPage)
-                                .transition(.opacity)
+                            EditPage(
+                                showEditPage: $showEditPage,
+                                pendingSoundtrack: $pendingSoundtrack,
+                                soundtracks: $soundtracks,
+                                saveSoundtracks: saveSoundtracks
+                            )
+                            .environmentObject(audioController)
+                            .transition(.opacity)
                         case .speedDetail:
                             SpeedDetailPage(
                                 showSpeedDetailPage: $showSpeedDetailPage,
@@ -902,11 +922,14 @@ struct ContentView: View {
             }
         }
         .onChange(of: showPlaybackPage, initial: false) { _, newValue in
-            if !newValue {
-                // Only set currentPage to .main if Speed Detail is not open
-                if !showSpeedDetailPage {
+            // Don't change currentPage when playback sheet is shown/hidden
+            // The playback page is presented as a sheet overlay, so the main page should remain visible
+            // Only handle the case when closing the sheet and we need to return to a specific page
+            if !newValue && !showSpeedDetailPage && !showEditPage {
+                // When closing playback sheet and no other pages are open, ensure we're on main page
+                if currentPage == .playback {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        currentPage = previousPage == .volume ? .volume : .main
+                        currentPage = .main
                     }
                 }
             }
@@ -939,20 +962,33 @@ struct ContentView: View {
             }
         }
         .onChange(of: showEditPage, initial: false) { _, newValue in
+            print("showEditPage changed to: \(newValue)")
             if newValue {
-                
+                // Remember if the playback sheet was open before opening edit page
+                wasPlaybackSheetOpenForEdit = showPlaybackPage
+                print("Opening edit page, wasPlaybackSheetOpenForEdit: \(wasPlaybackSheetOpenForEdit)")
+                showPlaybackPage = false
                 playbackPageRemovalDirection = .leading
                 withAnimation(.easeInOut(duration: 0.2)) {
                     previousPage = currentPage
                     currentPage = .edit
                 }
+                print("Set currentPage to .edit")
             } else {
-                
+                print("Closing edit page, wasPlaybackSheetOpenForEdit: \(wasPlaybackSheetOpenForEdit)")
                 withAnimation(.easeInOut(duration: 0.2)) {
                     previousPage = .edit
-                    currentPage = .playback
+                    currentPage = .main // Go to main first, then reopen sheet if needed
                     playbackPageInsertionDirection = .leading
                     playbackPageRemovalDirection = .trailing
+                }
+                // After the animation, reopen the playback sheet if it was open before
+                if wasPlaybackSheetOpenForEdit {
+                    print("Reopening playback sheet after edit page")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        showPlaybackPage = true
+                        wasPlaybackSheetOpenForEdit = false
+                    }
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     self.playbackPageInsertionDirection = .trailing
@@ -999,6 +1035,10 @@ struct ContentView: View {
             }
         }
         .onChange(of: currentPage) { oldPage, newPage in
+            print("currentPage changed from \(oldPage) to \(newPage)")
+            // Update AppDelegate with current page for orientation control
+            AppDelegate.currentPage = newPage
+            
             if newPage == .playback || newPage == .settings {
                 setDeviceOrientation(.portrait)
             }
