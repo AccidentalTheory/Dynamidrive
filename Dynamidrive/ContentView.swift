@@ -26,6 +26,7 @@ class AudioController: ObservableObject {
     var locationHandler: LocationHandler
     public var currentSoundtrackID: UUID? = nil // <-- Add this property
     @Published var isHushActive: Bool = false
+    @Published var wasInterrupted: Bool = false // Track if an interruption occurred
     
     // Add a property to AudioController to hold the hush timer
     private var hushSpeedTimer: Timer?
@@ -48,6 +49,83 @@ class AudioController: ObservableObject {
         self.locationHandler = locationHandler
         setupAudioSession()
         setupRemoteControl()
+        // Add observer for AVAudioSession interruptions
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioSessionInterruption(_:)),
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance()
+        )
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    // Handle AVAudioSession interruptions (e.g., phone call, Siri, CarPlay, other music apps)
+    @objc private func handleAudioSessionInterruption(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
+            return
+        }
+        switch type {
+        case .began:
+            // Interruption began, pause playback if playing
+            if isSoundtrackPlaying {
+                pauseAllPlayersWithEffects()
+                isSoundtrackPlaying = false // Update UI state
+                wasInterrupted = true // Mark that an interruption occurred
+            }
+        case .ended:
+            // Interruption ended, check if should resume
+            if let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt {
+                let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+                if options.contains(.shouldResume) {
+                    // Pause all players and apply effects
+                    pauseAllPlayersWithEffects()
+                    // Set all to the minimum time
+                    let times = currentPlayers.compactMap { $0?.currentTime }
+                    let minTime = times.min() ?? 0.0
+                    for player in currentPlayers {
+                        player?.currentTime = minTime
+                        player?.prepareToPlay() // Ensure the new position is set
+                    }
+                    masterPlaybackTime = minTime
+                    // Wait a short moment, then resume playback (without toggling isSoundtrackPlaying/UI)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        let deviceCurrentTime = self.currentPlayers.first(where: { $0 != nil })??.deviceCurrentTime ?? 0
+                        let startTime = deviceCurrentTime + 0.1
+                        if let soundtrackID = self.currentSoundtrackID {
+                            self.locationHandler.startDistanceTracking(for: soundtrackID)
+                        }
+                        for (index, player) in self.currentPlayers.enumerated() {
+                            if let player = player {
+                                player.currentTime = self.masterPlaybackTime
+                                player.numberOfLoops = -1
+                                if self.isHushActive {
+                                    if index == 0 {
+                                        let normalVolume = self.calculateVolumeForTrack(at: 0, speed: self.locationHandler.speedMPH)
+                                        let hushVolume = normalVolume * 0.1
+                                        player.volume = hushVolume
+                                    } else {
+                                        player.volume = 0.0
+                                    }
+                                } else {
+                                    player.volume = self.calculateVolumeForTrack(at: index, speed: self.locationHandler.speedMPH)
+                                }
+                                player.play(atTime: startTime)
+                            }
+                        }
+                        self.updateSyncTimer()
+                        self.updateNowPlayingInfo()
+                        self.isSoundtrackPlaying = true // Update UI state
+                    }
+                }
+            }
+        @unknown default:
+            break
+        }
     }
     
     // Add this new method to adjust volumes based on speed
@@ -144,31 +222,23 @@ class AudioController: ObservableObject {
     }
     
     func toggleSoundtrackPlayback() {
+        let syncTolerance: TimeInterval = 0.001
         if isSoundtrackPlaying {
-            if let firstPlayer = currentPlayers.first(where: { $0?.isPlaying ?? false }) {
-                masterPlaybackTime = firstPlayer?.currentTime ?? 0.0
-            }
-            currentPlayers.forEach { $0?.pause() }
-            locationHandler.stopDistanceTracking()
-            updateSyncTimer()
+            pauseAllPlayersWithEffects()
         } else {
             // --- Synchronize all players before playing ---
-            let tolerance: TimeInterval = 0.05
-            let referenceTime: TimeInterval = {
-                if masterPlaybackTime > 0 {
-                    return masterPlaybackTime
-                } else if let firstPlayer = currentPlayers.first(where: { $0 != nil }) {
-                    return firstPlayer?.currentTime ?? 0.0
-                } else {
-                    return 0.0
-                }
-            }()
-            let allSynced = currentPlayers.compactMap { $0?.currentTime }.allSatisfy { abs($0 - referenceTime) < tolerance }
-            if !allSynced {
+            let referenceTimes = currentPlayers.compactMap { $0?.currentTime }
+            let allExact = referenceTimes.dropFirst().allSatisfy { abs($0 - (referenceTimes.first ?? 0.0)) < syncTolerance }
+            print("[DEBUG] Checking sync before playback: times = \(referenceTimes), allExact = \(allExact)")
+            if !allExact {
+                // Pause all players, set all to the minimum (earliest) playback time, then start playback from that position
+                print("[DEBUG] Not all tracks are in sync. Pausing and aligning to min time.")
+                currentPlayers.forEach { $0?.pause() }
+                let minTime = referenceTimes.min() ?? 0.0
                 for player in currentPlayers {
-                    player?.currentTime = referenceTime
+                    player?.currentTime = minTime
                 }
-                masterPlaybackTime = referenceTime
+                masterPlaybackTime = minTime
             }
             let deviceCurrentTime = currentPlayers.first(where: { $0 != nil })??.deviceCurrentTime ?? 0
             let startTime = deviceCurrentTime + 0.1
@@ -194,6 +264,67 @@ class AudioController: ObservableObject {
                 }
             }
             updateSyncTimer()
+            // If playback was previously interrupted, immediately pause, sync, and play again (without toggling isSoundtrackPlaying)
+            if wasInterrupted {
+                wasInterrupted = false // Reset immediately to prevent re-entry
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    print("[DEBUG] wasInterrupted: Pausing all players for adjustment.")
+                    self.currentPlayers.forEach { $0?.pause() }
+                    let beforeTimes = self.currentPlayers.compactMap { $0?.currentTime }
+                    print("[DEBUG] wasInterrupted: Track times before adjustment: \(beforeTimes)")
+                    let times = self.currentPlayers.compactMap { $0?.currentTime }
+                    let minTime = times.min() ?? 0.0
+                    // Only adjust if not already within tolerance
+                    let allWithinTolerance = times.dropFirst().allSatisfy { abs($0 - (times.first ?? 0.0)) < syncTolerance }
+                    if !allWithinTolerance {
+                        for player in self.currentPlayers {
+                            player?.currentTime = minTime
+                            player?.prepareToPlay()
+                        }
+                        let afterTimes = self.currentPlayers.compactMap { $0?.currentTime }
+                        print("[DEBUG] wasInterrupted: Track times after adjustment: \(afterTimes), all set to minTime: \(minTime)")
+                        self.masterPlaybackTime = minTime
+                    } else {
+                        print("[DEBUG] wasInterrupted: All tracks already within tolerance (", syncTolerance, "), skipping adjustment.")
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        print("[DEBUG] wasInterrupted: Playing all tracks after adjustment.")
+                        let deviceCurrentTime = self.currentPlayers.first(where: { $0 != nil })??.deviceCurrentTime ?? 0
+                        let startTime = deviceCurrentTime + 0.1
+                        for (index, player) in self.currentPlayers.enumerated() {
+                            if let player = player {
+                                player.currentTime = self.masterPlaybackTime
+                                player.numberOfLoops = -1
+                                if self.isHushActive {
+                                    if index == 0 {
+                                        let normalVolume = self.calculateVolumeForTrack(at: 0, speed: self.locationHandler.speedMPH)
+                                        let hushVolume = normalVolume * 0.1
+                                        player.volume = hushVolume
+                                    } else {
+                                        player.volume = 0.0
+                                    }
+                                } else {
+                                    player.volume = self.calculateVolumeForTrack(at: index, speed: self.locationHandler.speedMPH)
+                                }
+                                print("[DEBUG] wasInterrupted: Playing track \(index) at time \(player.currentTime)")
+                                player.play(atTime: startTime)
+                            }
+                        }
+                        self.updateSyncTimer()
+                        self.updateNowPlayingInfo()
+                        self.isSoundtrackPlaying = true
+                        let playingStates = self.currentPlayers.map { $0?.isPlaying ?? false }
+                        print("[DEBUG] wasInterrupted: Adjustment complete. isSoundtrackPlaying=\(self.isSoundtrackPlaying), player states: \(playingStates)")
+                        // Simulate a pause button press, then after 1 second, a play button press
+                        print("[DEBUG] wasInterrupted: Simulating pause button press after interruption.")
+                        self.toggleSoundtrackPlayback() // Simulate pause
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            print("[DEBUG] wasInterrupted: Simulating play button press after 1s.")
+                            self.toggleSoundtrackPlayback() // Simulate play
+                        }
+                    }
+                }
+            }
         }
         isSoundtrackPlaying.toggle()
         updateNowPlayingInfo()
@@ -372,6 +503,16 @@ class AudioController: ObservableObject {
         }
         // After hush is off, allow normal volume logic to resume
         adjustVolumesForSpeed(locationHandler.speedMPH)
+    }
+    
+    // New: Pause all players and apply all effects, but do not toggle UI state
+    private func pauseAllPlayersWithEffects() {
+        if let firstPlayer = currentPlayers.first(where: { $0?.isPlaying ?? false }) {
+            masterPlaybackTime = firstPlayer?.currentTime ?? 0.0
+        }
+        currentPlayers.forEach { $0?.pause() }
+        locationHandler.stopDistanceTracking()
+        updateSyncTimer()
     }
 }
 

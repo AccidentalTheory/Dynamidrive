@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SpeedDetailPage: View {
     @Binding var showSpeedDetailPage: Bool
@@ -57,13 +58,20 @@ struct SpeedDetailPage: View {
                         PageButton(label: {
                             Image(systemName: "arrow.uturn.backward").globalButtonStyle()
                         }, action: {
+                            OrientationUtils.setDeviceOrientation(.portrait) // Force portrait on back
                             withAnimation(.easeInOut(duration: 0.5)) {
                                 showSpeedDetailPage = false
                             }
                         }),
                         PageButton(label: {
+                            Image(systemName: audioController.isSoundtrackPlaying ? "pause.fill" : "play.fill").globalButtonStyle()
+                        }, action: {
+                            audioController.toggleSoundtrackPlayback()
+                        }),
+                        PageButton(label: {
                             Image(systemName: "gearshape").globalButtonStyle()
                         }, action: {
+                            OrientationUtils.setDeviceOrientation(.portrait) // Force portrait on settings
                             withAnimation(.easeInOut(duration: 0.5)) {
                                 showSettingsPage = true
                             }
@@ -99,6 +107,7 @@ struct SpeedDetailPage: View {
             }
             .zIndex(4)
         }
+        .id(deviceOrientation) // <-- Add this line to force layout update on orientation change
         .ignoresSafeArea()
         .persistentSystemOverlays(.hidden)
     }
