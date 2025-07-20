@@ -34,6 +34,8 @@ class AudioController: ObservableObject {
     // Add a property to track hush cooldown
     private var hushCooldownUntil: Date? = nil
     
+    private var nowPlayingMonitorTimer: Timer?
+    
     struct SoundtrackData: Codable {
         let audioFileName: String
         let displayName: String
@@ -54,6 +56,13 @@ class AudioController: ObservableObject {
             self,
             selector: #selector(handleAudioSessionInterruption(_:)),
             name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance()
+        )
+        // Add observer for route changes (e.g., headphones unplugged)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioRouteChange(_:)),
+            name: AVAudioSession.routeChangeNotification,
             object: AVAudioSession.sharedInstance()
         )
     }
@@ -125,6 +134,35 @@ class AudioController: ObservableObject {
             }
         @unknown default:
             break
+        }
+    }
+    
+    // Detect when Now Playing session ends (e.g., user stops playback from Control Center)
+    @objc private func handleNowPlayingSessionEnded(_ notification: Notification) {
+        let nowPlayingInfoCenter = MPNowPlayingInfoCenter.default()
+        // If playback rate is 0 and we think we're playing, treat as session ended
+        let playbackRate = (nowPlayingInfoCenter.nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] as? NSNumber)?.floatValue ?? 1.0
+        if playbackRate == 0.0 && isSoundtrackPlaying {
+            print("[NowPlaying] Detected session ended externally. Stopping playback.")
+            pauseAllPlayersWithEffects()
+            isSoundtrackPlaying = false
+            updateNowPlayingInfo()
+        }
+    }
+
+    // Optionally, handle route changes (e.g., headphones unplugged)
+    @objc private func handleAudioRouteChange(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else { return }
+        if reason == .oldDeviceUnavailable {
+            // Headphones unplugged, pause playback
+            if isSoundtrackPlaying {
+                print("[AudioRoute] Headphones unplugged. Pausing playback.")
+                pauseAllPlayersWithEffects()
+                isSoundtrackPlaying = false
+                updateNowPlayingInfo()
+            }
         }
     }
     
@@ -225,7 +263,11 @@ class AudioController: ObservableObject {
         let syncTolerance: TimeInterval = 0.001
         if isSoundtrackPlaying {
             pauseAllPlayersWithEffects()
+            stopNowPlayingMonitor()
         } else {
+            // Always re-activate audio session and re-set Now Playing info before starting playback
+            setupAudioSession()
+            updateNowPlayingInfo()
             // --- Synchronize all players before playing ---
             let referenceTimes = currentPlayers.compactMap { $0?.currentTime }
             let allExact = referenceTimes.dropFirst().allSatisfy { abs($0 - (referenceTimes.first ?? 0.0)) < syncTolerance }
@@ -264,6 +306,7 @@ class AudioController: ObservableObject {
                 }
             }
             updateSyncTimer()
+            startNowPlayingMonitor()
             // If playback was previously interrupted, immediately pause, sync, and play again (without toggling isSoundtrackPlaying)
             if wasInterrupted {
                 wasInterrupted = false // Reset immediately to prevent re-entry
@@ -328,6 +371,25 @@ class AudioController: ObservableObject {
         }
         isSoundtrackPlaying.toggle()
         updateNowPlayingInfo()
+    }
+    
+    // Monitor if all players have stopped (Now Playing session ended externally)
+    private func startNowPlayingMonitor() {
+        stopNowPlayingMonitor()
+        nowPlayingMonitorTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            let anyPlaying = self.currentPlayers.contains { $0?.isPlaying == true }
+            if !anyPlaying && self.isSoundtrackPlaying {
+                print("[NowPlayingMonitor] All players stopped. Detected external session end.")
+                self.isSoundtrackPlaying = false
+                self.updateNowPlayingInfo()
+                self.stopNowPlayingMonitor()
+            }
+        }
+    }
+    private func stopNowPlayingMonitor() {
+        nowPlayingMonitorTimer?.invalidate()
+        nowPlayingMonitorTimer = nil
     }
     
     func setCurrentSoundtrack(id: UUID, tracks: [SoundtrackData], players: [AVAudioPlayer?], title: String) {
