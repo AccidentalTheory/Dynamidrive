@@ -414,8 +414,14 @@ class AudioController: ObservableObject {
         let maxSpeed = Double(track.maximumSpeed)
         let maxVolume = mapVolume(track.maximumVolume)
         
-        if minSpeed == maxSpeed {
+        // If both minimum and maximum are 0, it's a base track that always plays
+        if minSpeed == 0 && maxSpeed == 0 {
             return maxVolume
+        }
+        
+        // If minimum and maximum are the same but not 0, it's a threshold track
+        if minSpeed == maxSpeed && minSpeed != 0 {
+            return speed >= minSpeed ? maxVolume : 0.0
         }
         
         guard minSpeed < maxSpeed else { return 0.0 }
