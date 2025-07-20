@@ -32,6 +32,7 @@ struct DynamidriveApp: App {
                 .modelContainer(sharedModelContainer)
                 .environmentObject(appDelegate.audioController) // Add audioController as environment object
                 .environmentObject(appDelegate.audioController.locationHandler) // Inject the shared LocationHandler
+                .preferredColorScheme(.dark) // Force dark mode
         }
     }
 }

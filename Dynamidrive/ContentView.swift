@@ -331,9 +331,11 @@ class AudioController: ObservableObject {
     }
     
     func setCurrentSoundtrack(id: UUID, tracks: [SoundtrackData], players: [AVAudioPlayer?], title: String) {
-        if currentSoundtrackTitle == title && isSoundtrackPlaying {
-            return
-        } else if currentSoundtrackTitle != title {
+        let wasPlaying = isSoundtrackPlaying
+        let wasSameSoundtrack = currentSoundtrackTitle == title
+        
+        // If switching to a different soundtrack, pause current playback
+        if !wasSameSoundtrack {
             if isSoundtrackPlaying {
                 currentPlayers.forEach { $0?.pause() }
                 locationHandler.stopDistanceTracking()
@@ -341,11 +343,19 @@ class AudioController: ObservableObject {
                 isSoundtrackPlaying = false
             }
             masterPlaybackTime = 0
+            // Reset all players' currentTime to 0 when switching soundtracks
+            for player in currentPlayers {
+                player?.currentTime = 0
+                player?.prepareToPlay()
+            }
         }
+        
+        // Always update tracks and players (even for the same soundtrack)
         currentTracks = tracks
         currentPlayers = players
         currentSoundtrackTitle = title
         currentSoundtrackID = id
+        
         // Set initial volumes respecting hush state
         for (index, player) in currentPlayers.enumerated() {
             if let player = player {
@@ -362,6 +372,7 @@ class AudioController: ObservableObject {
                 }
             }
         }
+        
         updateNowPlayingInfo()
     }
     
@@ -584,6 +595,18 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Force dark mode for the entire app
+        if let windowScene = application.connectedScenes.first as? UIWindowScene {
+            windowScene.windows.forEach { window in
+                window.overrideUserInterfaceStyle = .dark
+            }
+        }
+        
+        // Alternative method: force dark mode on the main window
+        if let window = application.windows.first {
+            window.overrideUserInterfaceStyle = .dark
+        }
+        
         // LocationHandler will check hasGrantedLocationPermission internally
         locationHandler.startLocationUpdates()
         return true

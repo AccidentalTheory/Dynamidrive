@@ -258,7 +258,7 @@ struct MainScreen: View {
             // Only animate if the order actually changed
             if oldOrder != newOrder {
                 // Start reorder animation
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     isAnimatingReorder = true
                     animationProgress = 0.0
                 }
@@ -268,14 +268,14 @@ struct MainScreen: View {
                     cardPositions[id] = index
                 }
                 
-                // Animate the progress
-                withAnimation(.easeInOut(duration: 0.6)) {
+                // Animate both scaling and movement with spring animation
+                withAnimation(.spring(response: 0.8, dampingFraction: 0.6, blendDuration: 0.1)) {
                     animationProgress = 1.0
                 }
                 
                 // Reset animation state
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         isAnimatingReorder = false
                         animationProgress = 0.0
                     }
@@ -317,9 +317,35 @@ struct MainScreen: View {
         let scaleEffect: Double = {
             if isAnimatingReorder {
                 if isMovingUp {
-                    return 1.0 + (0.08 * animationProgress)
+                    // Bottom card moving up: scale up to peak, then gradually reduce
+                    let scalePeak = 0.15
+                    let scaleProgress = animationProgress
+                    if scaleProgress <= 0.3 {
+                        // Rapid scaling up in first 30%
+                        return 1.0 + (scalePeak * (scaleProgress / 0.3))
+                    } else if scaleProgress <= 0.5 {
+                        // Hold peak scale for a moment
+                        return 1.0 + scalePeak
+                    } else {
+                        // Gradually reduce scale as it moves
+                        let remainingProgress = (scaleProgress - 0.5) / 0.5
+                        return 1.0 + (scalePeak * (1.0 - remainingProgress))
+                    }
                 } else if isMovingDown {
-                    return 1.0 - (0.08 * animationProgress)
+                    // Top card moving down: scale down to peak, then gradually reduce
+                    let scalePeak = 0.1
+                    let scaleProgress = animationProgress
+                    if scaleProgress <= 0.3 {
+                        // Rapid scaling down in first 30%
+                        return 1.0 - (scalePeak * (scaleProgress / 0.3))
+                    } else if scaleProgress <= 0.5 {
+                        // Hold peak scale for a moment
+                        return 1.0 - scalePeak
+                    } else {
+                        // Gradually reduce scale as it moves
+                        let remainingProgress = (scaleProgress - 0.5) / 0.5
+                        return 1.0 - (scalePeak * (1.0 - remainingProgress))
+                    }
                 }
             }
             return 1.0
@@ -338,10 +364,27 @@ struct MainScreen: View {
                 let spacing: Double = 14.0
                 let totalCardHeight = cardHeight + spacing
                 
+                // Only start moving after scaling is complete and held (after 50% of animation)
+                let movementProgress = max(0, (animationProgress - 0.5) / 0.5)
+                
                 if isMovingUp {
-                    return -totalCardHeight * animationProgress
+                    return -totalCardHeight * movementProgress
                 } else if isMovingDown {
-                    return totalCardHeight * animationProgress
+                    return totalCardHeight * movementProgress
+                }
+            }
+            return 0.0
+        }()
+        
+        // Calculate z-index to ensure bottom card appears on top during animation
+        let zIndex: Double = {
+            if isAnimatingReorder {
+                if isMovingUp {
+                    // Bottom card moving up should be on top throughout animation
+                    return 100.0
+                } else if isMovingDown {
+                    // Top card moving down should be behind throughout animation
+                    return -100.0
                 }
             }
             return 0.0
@@ -440,6 +483,7 @@ struct MainScreen: View {
         .scaleEffect(soundtracksBeingDeleted.contains(soundtrack.id) ? 0.8 : scaleEffect)
         .offset(y: offsetEffect)
         .blur(radius: blurEffect)
+        .zIndex(zIndex)
         .animation(.easeInOut(duration: 0.3), value: soundtracksBeingDeleted)
         .modifier(FlyInCardEffect(isVisible: animateCards, delay: delay))
         .matchedGeometryEffect(id: soundtrack.id, in: cardNamespace)
