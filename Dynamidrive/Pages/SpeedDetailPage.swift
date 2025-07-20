@@ -96,11 +96,13 @@ struct SpeedDetailPage: View {
                 areButtonsVisible = true
                 startInactivityTimer()
                 UIApplication.shared.isStatusBarHidden = true
+                UIApplication.shared.isIdleTimerDisabled = true
             }
             .onDisappear {
                 areButtonsVisible = true
                 invalidateInactivityTimer()
                 UIApplication.shared.isStatusBarHidden = false
+                UIApplication.shared.isIdleTimerDisabled = false
             }
             .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
                 deviceOrientation = UIDevice.current.orientation
