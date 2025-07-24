@@ -1,0 +1,357 @@
+//
+//  ContentView.swift
+//  Dynamidrive Backend Test
+//
+//  Created by Kai del Castillo on 7/21/25.
+//
+
+import SwiftUI
+import AVFoundation
+import UniformTypeIdentifiers
+import Combine
+
+struct SeparatedTrack: Identifiable {
+    let id = UUID()
+    let name: String
+    let url: URL
+}
+
+struct ContentView: View {
+    @State private var isUploading = false
+    @State private var isProcessing = false
+    @State private var showFilePicker = false
+    @State private var selectedFileURL: URL?
+    @State private var separatedTracks: [SeparatedTrack] = []
+    @State private var audioPlayers: [String: AVPlayer] = [:]
+    @State private var pollingTimer: Timer?
+    @State private var errorMessage: String?
+    @State private var originalFileBaseName: String? = nil
+    
+    let backendBaseURL = "https://demucs.dynamidrive.app"
+    let expectedTracks = ["vocals.wav", "drums.wav", "bass.wav", "other.wav"]
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                if let error = errorMessage {
+                    Text(error)
+                        .foregroundColor(.red)
+                }
+                
+                Text("Note: The file size limit is 100MB.")
+                    .font(.subheadline)
+                    .foregroundColor(.orange)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                Button(action: {
+                    showFilePicker = true
+                }) {
+                    Text("Select Audio File")
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .fileImporter(
+                    isPresented: $showFilePicker,
+                    allowedContentTypes: [.audio],
+                    allowsMultipleSelection: false
+                ) { result in
+                    switch result {
+                    case .success(let urls):
+                        if let url = urls.first {
+                            selectedFileURL = url
+                            uploadFile(url: url)
+                        }
+                    case .failure(let error):
+                        errorMessage = "File selection error: \(error.localizedDescription)"
+                    }
+                }
+                
+                if isUploading || isProcessing {
+                    ProgressView(isUploading ? "Uploading..." : "Processing...")
+                        .progressViewStyle(CircularProgressViewStyle())
+                }
+                
+                if !separatedTracks.isEmpty {
+                    Text("Separated Tracks:")
+                        .font(.headline)
+                    ForEach(separatedTracks) { track in
+                        VStack(alignment: .leading) {
+                            Text(track.name.capitalized.replacingOccurrences(of: ".wav", with: ""))
+                                .font(.subheadline)
+                            AudioPlayerView(url: track.url)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Audio Separator")
+        }
+    }
+    
+    func uploadFile(url: URL) {
+        isUploading = true
+        errorMessage = nil
+        separatedTracks = []
+        
+        // Store the base name (without extension) for later use
+        originalFileBaseName = url.deletingPathExtension().lastPathComponent
+        
+        var fileData: Data?
+        let didStartAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if didStartAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        do {
+            fileData = try Data(contentsOf: url)
+        } catch {
+            errorMessage = "Failed to read file data: \(error.localizedDescription)"
+            isUploading = false
+            return
+        }
+        guard let fileData = fileData else {
+            errorMessage = "Failed to read file data."
+            isUploading = false
+            return
+        }
+        
+        var request = URLRequest(url: URL(string: "\(backendBaseURL)/upload")!)
+        request.httpMethod = "POST"
+        
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        
+        let fieldName = "file"
+        let fileName = url.lastPathComponent
+        let mimeType = "audio/wav" // Demucs supports various types, but wav is safe
+        
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(fileData)
+        body.append("\r\n".data(using: .utf8)!)
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        // Set up a custom session configuration with longer timeout
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 300 // 5 minutes
+        config.timeoutIntervalForResource = 300 // 5 minutes
+        let session = URLSession(configuration: config)
+        
+        let task = session.uploadTask(with: request, from: body) { data, response, error in
+            DispatchQueue.main.async {
+                isUploading = false
+                if let error = error {
+                    errorMessage = "Upload failed: \(error.localizedDescription)"
+                    return
+                }
+                startPollingForTracks()
+            }
+        }
+        task.resume()
+    }
+    
+    func startPollingForTracks() {
+        pollingTimer?.invalidate()
+        pollingTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
+            fetchSeparatedTracks()
+        }
+    }
+    
+    func fetchSeparatedTracks() {
+        let url = URL(string: "\(backendBaseURL)/")!
+        let task = URLSession.shared.dataTask(with: url) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    errorMessage = "Failed to fetch tracks: \(error.localizedDescription)"
+                    return
+                }
+                guard let data = data, let html = String(data: data, encoding: .utf8) else {
+                    errorMessage = "Failed to decode server response."
+                    return
+                }
+                let foundTracks = parseTrackLinks(from: html)
+                if foundTracks.count == expectedTracks.count {
+                    pollingTimer?.invalidate()
+                    // Download all found tracks to local temp directory
+                    downloadTracks(tracks: foundTracks)
+                }
+            }
+        }
+        task.resume()
+    }
+
+    func downloadTracks(tracks: [SeparatedTrack]) {
+        var downloaded: [SeparatedTrack] = []
+        let group = DispatchGroup()
+        var downloadError: String? = nil
+        for track in tracks {
+            group.enter()
+            // Use the URL directly to avoid double-encoding
+            let downloadURL = track.url
+            print("Downloading from URL: \(downloadURL)")
+            let task = URLSession.shared.downloadTask(with: downloadURL) { tempURL, response, error in
+                defer { group.leave() }
+                if let error = error {
+                    downloadError = "Failed to download \(track.name): \(error.localizedDescription)"
+                    print(downloadError!)
+                    return
+                }
+                guard let tempURL = tempURL else {
+                    downloadError = "Failed to download \(track.name): No file URL."
+                    print(downloadError!)
+                    return
+                }
+                // Print first 100 bytes of the file as a string
+                if let data = try? Data(contentsOf: tempURL) {
+                    let prefix = data.prefix(100)
+                    let prefixString = String(decoding: prefix, as: UTF8.self)
+                    print("First 100 bytes of \(track.name): \(prefixString)")
+                }
+                // Move file to a persistent temp location with correct name
+                let fileManager = FileManager.default
+                let fileName = track.url.lastPathComponent
+                let destURL = fileManager.temporaryDirectory.appendingPathComponent(fileName)
+                try? fileManager.removeItem(at: destURL) // Remove if exists
+                do {
+                    try fileManager.moveItem(at: tempURL, to: destURL)
+                    // Debug: print file URL and size
+                    if let attrs = try? fileManager.attributesOfItem(atPath: destURL.path), let fileSize = attrs[.size] as? UInt64 {
+                        print("Downloaded \(fileName) to \(destURL), size: \(fileSize) bytes")
+                    } else {
+                        print("Downloaded \(fileName) to \(destURL), size: unknown")
+                    }
+                    downloaded.append(SeparatedTrack(name: track.name, url: destURL))
+                } catch {
+                    downloadError = "Failed to save \(track.name): \(error.localizedDescription)"
+                    print(downloadError!)
+                }
+            }
+            task.resume()
+        }
+        group.notify(queue: .main) {
+            if let error = downloadError {
+                errorMessage = error
+            } else {
+                separatedTracks = downloaded
+            }
+        }
+    }
+    
+    func parseTrackLinks(from html: String) -> [SeparatedTrack] {
+        var tracks: [SeparatedTrack] = []
+        guard let baseName = originalFileBaseName else { return tracks }
+        for track in expectedTracks {
+            let newFileName = "\(baseName)_\(track)"
+            // Always use /download/ prefix for separated files
+            let downloadPath = "/download/\(newFileName)"
+            if html.contains(newFileName) {
+                if let url = URL(string: "\(backendBaseURL)\(downloadPath)") {
+                    tracks.append(SeparatedTrack(name: track, url: url))
+                }
+            }
+        }
+        return tracks
+    }
+}
+
+// MARK: - Audio Player Manager
+class AVPlayerManager: ObservableObject {
+    @Published var isPlaying = false
+    let url: URL
+    var player: AVPlayer?
+    private var timeObserverToken: Any?
+    private var endObserver: Any?
+    
+    init(url: URL) {
+        self.url = url
+        // Set up audio session for playback
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+            print("Audio session set for playback")
+        } catch {
+            print("Failed to set audio session: \(error.localizedDescription)")
+        }
+        self.player = AVPlayer(url: url)
+        print("AVPlayerManager initialized with URL: \(url)")
+        // Observe when playback finishes
+        endObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: player?.currentItem,
+            queue: .main
+        ) { [weak self] _ in
+            self?.isPlaying = false
+            self?.player?.seek(to: .zero)
+        }
+    }
+    
+    deinit {
+        if let endObserver = endObserver {
+            NotificationCenter.default.removeObserver(endObserver)
+        }
+    }
+    
+    func playPause() {
+        guard let player = player else {
+            print("playPause called but player is nil")
+            return
+        }
+        print("playPause called. isPlaying: \(isPlaying). Player status: rate=\(player.rate), currentItem=\(String(describing: player.currentItem))")
+        if isPlaying {
+            player.pause()
+        } else {
+            player.play()
+        }
+        isPlaying.toggle()
+    }
+    
+    func stop() {
+        player?.pause()
+        player?.seek(to: .zero)
+        isPlaying = false
+    }
+}
+
+struct AudioPlayerView: View {
+    let url: URL
+    @StateObject private var manager: AVPlayerManager
+    
+    init(url: URL) {
+        self.url = url
+        _manager = StateObject(wrappedValue: AVPlayerManager(url: url))
+    }
+    
+    var body: some View {
+        HStack {
+            Button(action: {
+                manager.playPause()
+            }) {
+                Image(systemName: manager.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                    .resizable()
+                    .frame(width: 32, height: 32)
+            }
+            Text(url.lastPathComponent)
+                .font(.caption)
+        }
+        .onDisappear {
+            manager.stop()
+        }
+    }
+}
+
+// Helper to append Data
+extension Data {
+    mutating func append(_ string: String) {
+        if let data = string.data(using: .utf8) {
+            append(data)
+        }
+    }
+}
+
