@@ -13,6 +13,7 @@ enum AppPage: Equatable {
     case masterSettings
     case `import`
     case aiUpload
+    case uploading
     case layout
     case importConfirmation
 }

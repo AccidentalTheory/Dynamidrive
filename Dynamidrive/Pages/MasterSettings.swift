@@ -127,7 +127,7 @@ struct MasterSettings: View {
                         if showSortOrderText {
                             Text(isSortChevronUp ? "Ascending" : "Descending")
                                 .foregroundColor(.gray)
-                                .transition(.opacity)
+                                .transition(GlobalPageTransition)
                                 .animation(.easeInOut(duration: 0.3), value: showSortOrderText)
                         }
                         Button(action: {

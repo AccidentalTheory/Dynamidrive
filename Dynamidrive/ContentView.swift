@@ -875,6 +875,10 @@ struct ContentView: View {
     @State private var deviceOrientation: UIDeviceOrientation = .portrait
     @State private var showAIUploadPage: Bool = false // New state for AI Upload page
     
+    // MARK: State for Uploading
+    @State private var showUploading: Bool = false // Controls UploadingScreen
+    @State private var isUploading: Bool = false // Controls text in UploadingScreen
+    
     @State private var currentPage: AppPage = .loading
     @State private var previousPage: AppPage? = nil
     
@@ -973,10 +977,10 @@ struct ContentView: View {
                         case .loading:
                             loadingScreen
                                 .zIndex(5)
-                                .transition(.opacity)
+                                .transition(GlobalPageTransition)
                         case .main:
                             mainScreen
-                                .transition(.opacity)
+                                .transition(GlobalPageTransition)
                         case .create:
                             CreatePage(
                                 showCreatePage: $showCreatePage,
@@ -1008,16 +1012,16 @@ struct ContentView: View {
                                 saveSoundtracks: saveSoundtracks
                             )
                             .environmentObject(audioController)
-                            .transition(.opacity)
+                            .transition(GlobalPageTransition)
                         case .configure:
                             configureScreen
-                                .transition(.opacity)
+                                .transition(GlobalPageTransition)
                         case .volume:
                             volumeScreen
-                                .transition(.opacity)
+                                .transition(GlobalPageTransition)
                         case .playback:
                             EmptyView()
-                                .transition(.opacity)
+                                .transition(GlobalPageTransition)
                         case .edit:
                             EditPage(
                                 showEditPage: $showEditPage,
@@ -1026,7 +1030,7 @@ struct ContentView: View {
                                 saveSoundtracks: saveSoundtracks
                             )
                             .environmentObject(audioController)
-                            .transition(.opacity)
+                            .transition(GlobalPageTransition)
                         case .speedDetail:
                             SpeedDetailPage(
                                 showSpeedDetailPage: $showSpeedDetailPage,
@@ -1050,36 +1054,57 @@ struct ContentView: View {
                                 startInactivityTimer: startInactivityTimer,
                                 invalidateInactivityTimer: invalidateInactivityTimer
                             )
-                            .transition(.opacity)
+                            .transition(GlobalPageTransition)
                         case .settings:
                             settingsScreen
-                                .transition(.opacity)
+                                .transition(GlobalPageTransition)
                         case .import:
                             importScreen
-                                .transition(.opacity)
+                                .transition(GlobalPageTransition)
                         case .aiUpload:
-                            aiUploadScreen
-                                .transition(.opacity)
+                            AIUploadPage(
+                                onBack: {
+                                    withAnimation(.easeInOut(duration: 0.5)) {
+                                        currentPage = .create // Go back to the create page
+                                    }
+                                },
+                                showConfigurePage: $showConfigurePage,
+                                createBaseAudioURL: $createBaseAudioURL,
+                                createAdditionalZStacks: $createAdditionalZStacks,
+                                createAdditionalTitles: $createAdditionalTitles,
+                                createReferenceLength: $createReferenceLength,
+                                createNextID: $createNextID,
+                                currentPage: $currentPage,
+                                showUploading: $showUploading,
+                                isUploading: $isUploading
+                            )
+                            .transition(GlobalPageTransition)
+                        case .uploading:
+                            UploadingScreen(
+                                isVisible: $showUploading,
+                                isUploading: $isUploading
+                            )
+                            .transition(GlobalPageTransition)
                         case .masterSettings:
                             MasterSettings(currentPage: $currentPage)
                                 .environmentObject(locationHandler)
-                                .transition(.opacity)
+                                .transition(GlobalPageTransition)
                         case .layout:
                             LayoutPage(showingLayoutPage: Binding(
                                 get: { currentPage == .layout },
                                 set: { show in if (!show) { currentPage = .masterSettings } }
                             ))
-                            .transition(.opacity)
+                            .transition(GlobalPageTransition)
                         case .importConfirmation:
                             EmptyView()
-                                .transition(.opacity)
+                                .transition(GlobalPageTransition)
                         }
                     }
                     .zIndex(9)
                 }
             }
         }
-        .statusBar(hidden: currentPage == .loading || currentPage == .speedDetail || !hasCompletedInitialLoad)
+        .statusBar(hidden: currentPage == .loading || currentPage == .speedDetail || currentPage == .uploading || !hasCompletedInitialLoad)
         .onAppear {
             // Lock to portrait orientation
             setDeviceOrientation(.portrait)
@@ -2538,147 +2563,23 @@ struct ContentView: View {
     }
     
     // MARK: - AI Upload Page
-        private var aiUploadScreen: some View {
-        ZStack {
-            // Mesh gradient background
-            MeshGradientView()
-                .opacity(showAIUploadPage ? 1 : 0)
-                .animation(.easeInOut(duration: 1.0).delay(1.0), value: showAIUploadPage)
-            
-
-            VStack(spacing: 0) {
-                Spacer()
-                    .frame(height:1)
-                
-
-                VStack(alignment: .leading, spacing: 15) {
-                    Text("Upload a song")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundColor(.white)
-                    
-                    Button(action: {
-
-                    }) {
-                        HStack {
-                            Image(systemName: "plus")
-                                .font(.system(size: 20))
-                            Text("Select Audio File")
-                                .font(.system(size: 17))
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                        .background(Color.white.opacity(0.2))
-                        .cornerRadius(10)
-                        .glassEffect(in: .rect(cornerRadius: 10.0))
-                    }
+    private var aiUpload: some View {
+        AIUploadPage(
+            onBack: {
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    currentPage = .create // Go back to the create page
                 }
-                .padding()
-                .background(GlobalCardAppearance)
-                
-                .padding()
-                
-
-                HStack {
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundColor(.white.opacity(0.3))
-                    
-                    Text("OR")
-                        .foregroundColor(.white.opacity(0.6))
-                        .font(.system(size: 16, weight: .medium))
-                        .padding(.horizontal, 10)
-                    
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundColor(.white.opacity(0.3))
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 5)
-                
-
-                VStack(alignment: .leading, spacing: 15) {
-                    Text("Find a song on YouTube")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundColor(.white)
-                    
-                    TextField("Search Youtube...", text: .constant(""))
-                        .textFieldStyle(PlainTextFieldStyle())
-                        .padding()
-                        .foregroundColor(.white)
-                        .background(Color.white.opacity(0.2))
-                        .cornerRadius(10)
-                        .glassEffect(in: .rect(cornerRadius: 10.0))
-                }
-                .padding()
-                .background(GlobalCardAppearance)
-              
-                .padding()
-                
-                Spacer()
-                
-
-                VStack(alignment: .leading, spacing: 10) {
-                    InfoRow(number: "1", text: "Upload an audio file")
-                    InfoRow(number: "2", text: "Chose what stems to seperate")
-                    InfoRow(number: "3", text: "AI separates the instruments")
-                    InfoRow(number: "4", text: "Configure the speed ranges")
-                    InfoRow(number: "5", text: "Create your new soundtrack")
-                }
-                .padding()
-                .background(GlobalCardAppearance)
-                .padding(.horizontal)
-                .padding(.bottom, 90)
-            }
-            
-            ZStack {
-            }
-            .frame(height: 150)
-            .allowsHitTesting(false)
-
-            VStack {
-                Spacer()
-                HStack(spacing: 240) {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showAIUploadPage = false
-                            currentPage = .create
-                        }
-                    }) {
-                        Image(systemName: "arrow.uturn.backward")
-                            .globalButtonStyle()
-                    }
-                    
-                    
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-                .background(Color.clear)
-            }
-            .ignoresSafeArea(.keyboard)
-            .zIndex(2)
-        }
-        .zIndex(5)
-    }
-    
-    private struct InfoRow: View {
-        let number: String
-        let text: String
-        
-        var body: some View {
-            HStack(spacing: 15) {
-                Text(number)
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 30, height: 30)
-                    .background(Color.white.opacity(0.2))
-                    .clipShape(Circle())
-                
-                Text(text)
-                    .font(.system(size: 17))
-                    .foregroundColor(.white.opacity(0.7))
-            }
-        }
+            },
+            showConfigurePage: $showConfigurePage,
+            createBaseAudioURL: $createBaseAudioURL,
+            createAdditionalZStacks: $createAdditionalZStacks,
+            createAdditionalTitles: $createAdditionalTitles,
+            createReferenceLength: $createReferenceLength,
+            createNextID: $createNextID,
+            currentPage: $currentPage,
+            showUploading: $showUploading,
+            isUploading: $isUploading
+        )
     }
 }
 

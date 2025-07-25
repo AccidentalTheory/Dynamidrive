@@ -5,6 +5,9 @@ enum PageLayoutConstants {
     static let cardHorizontalPadding: CGFloat = 8
 }
 
+// MARK: - Global Page Transition
+let GlobalPageTransition = AnyTransition.opacity
+
 //MARK: Cards
 let GlobalCardAppearance: AnyView = AnyView(
     Rectangle()
