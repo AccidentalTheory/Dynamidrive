@@ -178,7 +178,7 @@ struct CreatePage: View {
                         let players = newTracks.map { track in
                             try? AVAudioPlayer(contentsOf: documentsDirectory.appendingPathComponent(track.audioFileName))
                         }
-                        soundtracks.append(Soundtrack(id: UUID(), title: importSoundtrackTitle, tracks: newTracks, players: players, cardColor: selectedColor))
+                        soundtracks.append(Soundtrack(id: UUID(), title: importSoundtrackTitle, tracks: newTracks, players: players, cardColor: selectedColor, isAI: false))
                         for t in importTracks { t.player?.stop() }
                         if let temp = importTempFolder { try? fileManager.removeItem(at: temp) }
                         importTracks = []

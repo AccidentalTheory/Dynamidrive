@@ -152,7 +152,8 @@ struct EditPage: View {
             title: editSoundtrackTitle.trimmingCharacters(in: .whitespaces),
             tracks: updatedTracks,
             players: reorderedPlayers,
-            cardColor: editSelectedCardColor
+            cardColor: editSelectedCardColor,
+            isAI: soundtrack.isAI // Preserve the isAI flag
         )
         
         // Update the pending soundtrack

@@ -43,7 +43,7 @@ struct PlaybackPage: View {
             return []
         }
         
-        let soundtrack = pendingSoundtrack ?? Soundtrack(id: UUID(), title: audioController.currentSoundtrackTitle, tracks: audioController.currentTracks, players: audioController.currentPlayers, cardColor: .clear)
+        let soundtrack = pendingSoundtrack ?? Soundtrack(id: UUID(), title: audioController.currentSoundtrackTitle, tracks: audioController.currentTracks, players: audioController.currentPlayers, cardColor: .clear, isAI: false)
         
         // Create a temporary directory for sharing
         guard let tempBaseURL = try? fileManager.url(

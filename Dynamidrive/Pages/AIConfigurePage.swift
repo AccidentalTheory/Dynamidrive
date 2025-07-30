@@ -31,7 +31,7 @@ struct AIConfigurePage: View {
 
     var body: some View {
         PageLayout(
-            title: "AI Configure",
+            title: "Configure",
             leftButtonAction: { showColorPicker = true },
             rightButtonAction: { showInfo2Page = true },
             leftButtonSymbol: "paintbrush",

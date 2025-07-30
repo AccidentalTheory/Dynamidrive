@@ -3080,15 +3080,28 @@ Check the console output for the exact file paths.
         let validPlayers = players.compactMap { $0 }
         print("[ContentView] Valid players count: \(validPlayers.count) out of \(players.count)")
         
-        // For AI soundtracks, copy files to main documents directory before cleanup
-        if true { // This is always true for AI soundtracks created in this flow
-            let fileManager = FileManager.default
-            guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-                print("[ContentView] Failed to access documents directory")
-                return
+        // Determine if this is an AI soundtrack by checking if files are in AI_Downloaded_Files directory
+        let fileManager = FileManager.default
+        guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            print("[ContentView] Failed to access documents directory")
+            return
+        }
+        
+        let aiDownloadedFilesPath = documentsDirectory.appendingPathComponent("AI_Downloaded_Files")
+        
+        // Check if any tracks are from AI_Downloaded_Files directory
+        var isAISoundtrack = false
+        for track in tracks {
+            let aiFileURL = aiDownloadedFilesPath.appendingPathComponent(track.audioFileName)
+            if fileManager.fileExists(atPath: aiFileURL.path) {
+                isAISoundtrack = true
+                break
             }
-            
-            let aiDownloadedFilesPath = documentsDirectory.appendingPathComponent("AI_Downloaded_Files")
+        }
+        
+        if isAISoundtrack {
+            // For AI soundtracks, copy files to main documents directory before cleanup
+            print("[ContentView] Detected AI soundtrack, copying files to main directory")
             
             // Copy AI files to main documents directory and update track filenames
             var updatedTracks: [AudioController.SoundtrackData] = []
@@ -3122,7 +3135,8 @@ Check the console output for the exact file paths.
             soundtracks.append(Soundtrack(id: UUID(), title: newTitle, tracks: updatedTracks, players: players, cardColor: selectedCardColor, isAI: true))
         } else {
             // Append the new soundtrack with the unique title (for non-AI soundtracks)
-            soundtracks.append(Soundtrack(id: UUID(), title: newTitle, tracks: tracks, players: players, cardColor: selectedCardColor, isAI: true))
+            print("[ContentView] Creating manual soundtrack")
+            soundtracks.append(Soundtrack(id: UUID(), title: newTitle, tracks: tracks, players: players, cardColor: selectedCardColor, isAI: false))
         }
         
         pauseAllAudio()
@@ -3313,7 +3327,8 @@ Check the console output for the exact file paths.
                 title: soundtrackTitle,
                 tracks: tracks,
                 players: players,
-                cardColor: .clear
+                cardColor: .clear,
+                isAI: false
             )
             
             soundtracks.append(newSoundtrack)
