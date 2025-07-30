@@ -39,7 +39,7 @@ class AudioController: ObservableObject {
     struct SoundtrackData: Codable {
         let audioFileName: String
         let displayName: String
-        let maximumVolume: Float
+        var maximumVolume: Float
         let minimumSpeed: Int
         let maximumSpeed: Int
     }
@@ -1712,6 +1712,7 @@ If you can't see it, try:
             createAdditionalZStacks: $createAdditionalZStacks,
             createAdditionalTitles: $createAdditionalTitles
         )
+        .environmentObject(audioController)
     }
     
     // MARK: Configure Page

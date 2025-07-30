@@ -37,15 +37,15 @@ struct AIConfigurePage: View {
             leftButtonSymbol: "paintbrush",
             rightButtonSymbol: "info",
             bottomButtons: [
-                PageButton(label: { Image(systemName: "checkmark").globalButtonStyle() }, action: {
-                    handleDoneAction()
-                }),
                 PageButton(label: { Image(systemName: "speaker.wave.3.fill").globalButtonStyle() }, action: {
                     if createBaseAudioURL == nil && createAdditionalZStacks.isEmpty {
                         UINotificationFeedbackGenerator().notificationOccurred(.error)
                     } else {
                         showVolumePage = true
                     }
+                }),
+                PageButton(label: { Image(systemName: "checkmark").globalButtonStyle() }, action: {
+                    handleDoneAction()
                 })
             ]
         ) {

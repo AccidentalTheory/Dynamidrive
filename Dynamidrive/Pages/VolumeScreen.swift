@@ -73,7 +73,55 @@ struct AdditionalAudioControl: View {
     }
 }
 
-// Audio controls container
+// Existing soundtrack audio control component
+struct ExistingTrackAudioControl: View {
+    let index: Int
+    @Binding var track: AudioController.SoundtrackData
+    let geometry: GeometryProxy
+    @EnvironmentObject private var audioController: AudioController
+    
+    private func mapVolume(_ percentage: Float) -> Float {
+        let mapped = (percentage + 100) / 100
+        return max(0.0, min(2.0, mapped))
+    }
+    
+    private func unmapVolume(_ mapped: Float) -> Float {
+        return (mapped * 100) - 100
+    }
+    
+    var body: some View {
+        ZStack {
+            GlobalCardAppearance
+        
+            VStack(spacing: 4) {
+                Text(track.displayName)
+                    .font(.system(size: 35, weight: .semibold))
+                    .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
+                    .minimumScaleFactor(0.3)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(2)
+                    .offset(x:-40)
+                    .foregroundColor(.white)
+                    .padding(.leading, 16)
+                Slider(value: Binding(
+                    get: { Double(unmapVolume(track.maximumVolume)) },
+                    set: { newValue in
+                        track.maximumVolume = mapVolume(Float(newValue))
+                        // Update the audio controller's current tracks
+                        if index < audioController.currentTracks.count {
+                            audioController.currentTracks[index].maximumVolume = track.maximumVolume
+                        }
+                        // Adjust volumes for current speed
+                        audioController.adjustVolumesForSpeed(audioController.locationHandler.speedMPH)
+                    }
+                ), in: -100...100, step: 1)
+                .frame(width: geometry.size.width * 0.7)
+            }
+        }
+    }
+}
+
+// Audio controls container for creation flow
 struct AudioControlsView: View {
     @Binding var createBaseAudioURL: URL?
     @Binding var createBaseTitle: String
@@ -94,6 +142,7 @@ struct AudioControlsView: View {
                     )
                 }
                 .frame(height: 108)
+                .padding(.horizontal, PageLayoutConstants.cardHorizontalPadding)
             }
             ForEach(Array(createAdditionalZStacks.enumerated()), id: \.element.id) { index, stack in
                 if stack.audioURL != nil {
@@ -106,7 +155,29 @@ struct AudioControlsView: View {
                         )
                     }
                     .frame(height: 108)
+                    .padding(.horizontal, PageLayoutConstants.cardHorizontalPadding)
                 }
+            }
+        }
+    }
+}
+
+// Audio controls container for existing soundtracks
+struct ExistingSoundtrackAudioControlsView: View {
+    @Binding var tracks: [AudioController.SoundtrackData]
+    
+    var body: some View {
+        VStack(spacing: 10) {
+            ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
+                GeometryReader { geometry in
+                    ExistingTrackAudioControl(
+                        index: index,
+                        track: $tracks[index],
+                        geometry: geometry
+                    )
+                }
+                .frame(height: 108)
+                .padding(.horizontal, PageLayoutConstants.cardHorizontalPadding)
             }
         }
     }
@@ -122,48 +193,49 @@ struct VolumeScreen: View {
     @Binding var createAdditionalZStacks: [ZStackData]
     @Binding var createAdditionalTitles: [String]
     
-    private var headerView: some View {
-        HStack {
-            Text("Volume Control")
-                .font(.system(size: 35, weight: .bold))
-                .foregroundColor(.white)
-            Spacer()
-        }
-    }
-    
-    private var backButton: some View {
-        Button(action: {
-            print("[VolumeScreen] Back button pressed, current source: \(volumePageSource.map { String(describing: $0) } ?? "nil")")
-            showVolumePage = false
-            // Note: volumePageSource will be reset in the onChange handler after navigation
-        }) {
-            Image(systemName: "arrow.uturn.backward")
-                .font(.system(size: 20))
-                .foregroundColor(.white)
-                .frame(width: 50, height: 50)
-               
-                .clipShape(Circle())
-                .glassEffect(.regular.tint(.clear).interactive())
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-        .padding()
-    }
+    // For editing existing soundtracks
+    @EnvironmentObject private var audioController: AudioController
+    @State private var editingTracks: [AudioController.SoundtrackData] = []
     
     var body: some View {
-        VStack(spacing: 20) {
-            headerView
-            AudioControlsView(
-                createBaseAudioURL: $createBaseAudioURL,
-                createBaseTitle: $createBaseTitle,
-                createBaseVolume: $createBaseVolume,
-                createBasePlayer: $createBasePlayer,
-                createAdditionalZStacks: $createAdditionalZStacks,
-                createAdditionalTitles: $createAdditionalTitles
-            )
-            Spacer()
+        PageLayout(
+            title: "Volume",
+            leftButtonAction: {},
+            rightButtonAction: {},
+            leftButtonSymbol: "",
+            rightButtonSymbol: "",
+            bottomButtons: [
+                PageButton(label: { Image(systemName: "arrow.uturn.backward").globalButtonStyle() }, action: {
+                    print("[VolumeScreen] Back button pressed, current source: \(volumePageSource.map { String(describing: $0) } ?? "nil")")
+                    showVolumePage = false
+                })
+            ]
+        ) {
+            VStack(spacing: 20) {
+                // Show different controls based on the source
+                if volumePageSource == .edit {
+                    // For editing existing soundtracks
+                    ExistingSoundtrackAudioControlsView(tracks: $editingTracks)
+                } else {
+                    // For creation flow
+                    AudioControlsView(
+                        createBaseAudioURL: $createBaseAudioURL,
+                        createBaseTitle: $createBaseTitle,
+                        createBaseVolume: $createBaseVolume,
+                        createBasePlayer: $createBasePlayer,
+                        createAdditionalZStacks: $createAdditionalZStacks,
+                        createAdditionalTitles: $createAdditionalTitles
+                    )
+                }
+                
+                Spacer().frame(height: 100)
+            }
         }
-        .padding()
-        .overlay(backButton)
-        .zIndex(4)
+        .onAppear {
+            // Initialize editing tracks if coming from edit page
+            if volumePageSource == .edit {
+                editingTracks = audioController.currentTracks
+            }
+        }
     }
 }

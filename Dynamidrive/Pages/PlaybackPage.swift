@@ -127,40 +127,11 @@ struct PlaybackPage: View {
                     }
                 } else {
                     ZStack {
-                        ScrollViewReader { proxy in
-                            let displayTracks = pendingSoundtrack?.tracks ?? audioController.currentTracks
-                            let shouldDisableScroll = displayTracks.count <= 4
-                            
-                            ScrollView(.vertical, showsIndicators: false) {
-                                trackList()
-                                    .padding(.horizontal)
-                                    .padding(.top, 160)
-                                    .padding(.bottom, 140)
-                                    .id("trackListBottom")
-                            }
-                            .disabled(shouldDisableScroll)
-                            .ignoresSafeArea()
-                            .onAppear {
-                                if shouldDisableScroll {
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                        withAnimation(.easeInOut(duration: 0.5)) {
-                                            proxy.scrollTo("trackListBottom", anchor: .bottom)
-                                        }
-                                    }
-                                }
-                            }
-                            .onChange(of: pendingSoundtrack) { oldValue, newValue in
-                                let newDisplayTracks = newValue?.tracks ?? audioController.currentTracks
-                                let newShouldDisableScroll = newDisplayTracks.count <= 4
-                                if newShouldDisableScroll {
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                        withAnimation(.easeInOut(duration: 0.5)) {
-                                            proxy.scrollTo("trackListBottom", anchor: .bottom)
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        trackList()
+                            .padding(.horizontal)
+                            .padding(.top, 160)
+                            .padding(.bottom, 140)
+                            .allowsHitTesting(false)
 
                         VStack(spacing: 20) {
                             // Header
@@ -210,7 +181,7 @@ struct PlaybackPage: View {
                                 playbackButtons()
                                 Spacer()
                             }
-                            .padding(.bottom, geometry.safeAreaInsets.bottom + 20)
+                            .padding(.bottom, geometry.safeAreaInsets.bottom + 40)
                         }
                         .ignoresSafeArea()
                     }
@@ -295,104 +266,88 @@ struct PlaybackPage: View {
         }
     }
     
-    @ViewBuilder
+        @ViewBuilder
     private func trackList() -> some View {
         let displayTracks = pendingSoundtrack?.tracks ?? audioController.currentTracks
         let displayedTitle = pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle
         let isCurrentSoundtrack = audioController.currentSoundtrackTitle == displayedTitle && audioController.isSoundtrackPlaying
-        VStack(spacing: 20) {
-            if !displayTracks.isEmpty && displayTracks[0].minimumSpeed == 0 && displayTracks[0].maximumSpeed == 0 {
-                GeometryReader { geometry in
-                    ZStack {
-                        GlobalCardAppearance
-                        HStack(alignment: .center, spacing: 0) {
-                            Text(displayTracks[0].displayName)
-                                .font(.system(size: 35, weight: .semibold))
-                                .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
-                                .minimumScaleFactor(0.3)
-                                .multilineTextAlignment(.leading)
-                                .lineLimit(2)
-                                .foregroundColor(.white)
-                                .padding(.leading, 16)
-                            Spacer()
-                            AudioBarsView(isPlaying: audioController.isSoundtrackPlaying, currentSoundtrackTitle: displayedTitle)
-                                .frame(width: 70, height: 50)
-                                .padding(.trailing, 16)
-                        }
-                    }
-                }
-                .frame(height: 108)
-            }
-            if displayTracks.count > 1 {
-                ForEach(1..<displayTracks.count, id: \.self) { index in
-                    GeometryReader { geometry in
-                        ZStack {
-                            GlobalCardAppearance
-                            if displayTracks[index].minimumSpeed == 0 && displayTracks[index].maximumSpeed == 0 {
-                                HStack(alignment: .center, spacing: 0) {
-                                    Text(displayTracks[index].displayName)
-                                        .font(.system(size: 35, weight: .semibold))
-                                        .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
-                                        .minimumScaleFactor(0.3)
-                                        .multilineTextAlignment(.leading)
-                                        .lineLimit(2)
-                                        .foregroundColor(.white)
-                                        .padding(.leading, 16)
-                                    Spacer()
-                                    AudioBarsView(isPlaying: audioController.isSoundtrackPlaying, currentSoundtrackTitle: displayedTitle)
-                                        .frame(width: 70, height: 50)
-                                        .padding(.trailing, 16)
-                                }
-                            } else {
-                                ZStack(alignment: .topLeading) {
-                                    VStack(spacing: 4) {
-                                        Text(displayTracks[index].displayName)
-                                            .font(.system(size: 35, weight: .semibold))
-                                            .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
-                                            .minimumScaleFactor(0.3)
-                                            .multilineTextAlignment(.leading)
-                                            .lineLimit(2)
-                                            .foregroundColor(.white)
-                                            .padding(.leading, 16)
-                                            .offset(x: -41, y: 12)
-                                        
-                                        HStack(spacing: 8) {
-                                            Text("\(displayTracks[index].minimumSpeed)")
-                                                .font(.system(size: 16, weight: .bold))
-                                                .foregroundColor(.white.opacity(0.5))
-                                                .scaleEffect(minSpeedScale[index] ?? 1.0)
-                                            Gauge(value: isCurrentSoundtrack ? Double(audioController.calculateVolumeForTrack(at: index, speed: locationHandler.speedMPH)) : 0.0,
-                                                  in: 0...Double(mapVolume(displayTracks[index].maximumVolume))) {
-                                                EmptyView()
-                                            }
-                                            .gaugeStyle(.linearCapacity)
-                                            .tint(.gray)
-                                            .frame(width: geometry.size.width * 0.69, height: 10)
-                                            .animation(.easeInOut(duration: 1.0), value: isCurrentSoundtrack ? locationHandler.speedMPH : 0.0)
-                                            Text("\(displayTracks[index].maximumSpeed)")
-                                                .font(.system(size: 16, weight: .bold))
-                                                .foregroundColor(.white.opacity(0.5))
-                                                .scaleEffect(maxSpeedScale[index] ?? 1.0)
-                                        }
-                                        .padding(.horizontal, 16)
-                                        .offset(y: 20)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    
-                                    AudioBarsView(isPlaying: audioController.isSoundtrackPlaying, currentSoundtrackTitle: displayedTitle)
-                                        .frame(width: 70, height: 50)
-                                        .padding(.trailing, 16)
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                                        .offset(y: 14)
-                                }
-                            }
-                        }
-                    }
-                    .frame(height: 108)
-                }
+        
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 20) {
+            ForEach(Array(displayTracks.enumerated()), id: \.offset) { index, track in
+                trackCapsule(track: track, isCurrentSoundtrack: isCurrentSoundtrack)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal, 20)
+        .padding(.vertical, 20)
+        .padding(.top, -50)
+    }
+    
+    @ViewBuilder
+    private func trackCapsule(track: AudioController.SoundtrackData, isCurrentSoundtrack: Bool) -> some View {
+        ZStack(alignment: .bottom) {
+            // Background rounded rectangle
+            RoundedRectangle(cornerRadius: 35)
+                .fill(capsuleBackgroundColor(track: track, isCurrentSoundtrack: isCurrentSoundtrack))
+                .frame(width: 120, height: 240)
+                .overlay(
+                    // Filling overlay from bottom up (only for speed-based tracks)
+                    VStack(spacing: 0) {
+                        Spacer()
+                        capsuleFill(track: track, isCurrentSoundtrack: isCurrentSoundtrack)
+                    }
+                    .allowsHitTesting(false)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 35))
+            
+            // Track name inside rounded rectangle at bottom
+            VStack {
+                Spacer()
+                Text(track.displayName)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(.gray)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.4)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 12)
+            }
+        }
+    }
+    
+    private func capsuleBackgroundColor(track: AudioController.SoundtrackData, isCurrentSoundtrack: Bool) -> Color {
+        if track.minimumSpeed == 0 && track.maximumSpeed == 0 {
+            // Always playing tracks - full white background
+            return Color.white
+        } else {
+            // Speed-based tracks - semi-transparent background
+            return Color.white.opacity(0.2)
+        }
+    }
+    
+    @ViewBuilder
+    private func capsuleFill(track: AudioController.SoundtrackData, isCurrentSoundtrack: Bool) -> some View {
+        // Only show fill for speed-based tracks
+        if track.minimumSpeed != 0 || track.maximumSpeed != 0 {
+            let currentSpeed = locationHandler.speedMPH
+            let minSpeed = Double(track.minimumSpeed)
+            let maxSpeed = Double(track.maximumSpeed)
+            
+            let fillPercentage: Double = {
+                if currentSpeed < minSpeed {
+                    return 0.0
+                } else if currentSpeed > maxSpeed {
+                    return 1.0
+                } else {
+                    return (currentSpeed - minSpeed) / (maxSpeed - minSpeed)
+                }
+            }()
+            
+            Rectangle()
+                .fill(Color.white)
+                .frame(width: 120, height: min(240 * fillPercentage, 240))
+                .offset(y: fillPercentage >= 1.0 ? -3 : 0)
+                .animation(.easeInOut(duration: 2.0), value: currentSpeed)
+        }
     }
     
     @ViewBuilder

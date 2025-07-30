@@ -45,9 +45,6 @@ struct EditPage: View {
                 }),
                 PageButton(label: { Image(systemName: "checkmark").globalButtonStyle() }, action: {
                     handleSaveAction()
-                }),
-                PageButton(label: { Image(systemName: "speaker.wave.3.fill").globalButtonStyle() }, action: {
-                    // Volume page action - could be implemented later
                 })
             ]
         ) {

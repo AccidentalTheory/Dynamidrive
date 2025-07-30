@@ -272,8 +272,7 @@ struct CreatePage: View {
                     }
                 }) {
                     if createBaseAudioURL == nil {
-                        Image(systemName: "document.badge.plus.fill")
-                            .offset(x: 1.5)
+                        Image(systemName: "arrow.up.circle")
                             .globalButtonStyle()
                     } else {
                         Image(systemName: createBaseIsPlaying ? "pause.fill" : "play.fill")
@@ -386,8 +385,7 @@ struct CreatePage: View {
                     }
                 }) {
                     if createAdditionalZStacks[index].audioURL == nil {
-                        Image(systemName: "document.badge.plus.fill")
-                            .offset(x: 1.5)
+                        Image(systemName: "arrow.up.circle")
                             .globalButtonStyle()
                     } else {
                         Image(systemName: createAdditionalZStacks[index].isPlaying ? "pause.fill" : "play.fill")
