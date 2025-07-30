@@ -381,46 +381,6 @@ struct EditPage: View {
                 .padding(.top, -4)
                 // Remove Move Up/Down Buttons
             }
-            // Order Button Menu (top right, glass style, 30x30, .padding(.top, 18))
-            HStack {
-                Spacer()
-                Menu {
-                    // This is a dynamic track, so it can swap with base or other dynamic tracks
-                    Button(action: { swapBaseWithDynamic(index) }) {
-                        HStack {
-                            Text("Base")
-                            Spacer()
-                        }
-                    }
-                    ForEach(0..<editAdditionalTitles.count, id: \.self) { i in
-                        Button(action: { 
-                            if i == index {
-                                // Same track, do nothing
-                            } else {
-                                swapDynamicWithDynamic(index, i)
-                            }
-                        }) {
-                            HStack {
-                                Text("Track \(i + 1)")
-                                if i == index {
-                                    Spacer()
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                } label: {
-                    Text("\(index + 1)")
-                        .font(.system(size: 16))
-                        .foregroundColor(.white)
-                        .frame(width: 30, height: 30)
-                        .background(Color.white.opacity(0.0))
-                        .clipShape(Circle())
-                        .glassEffect(.regular.tint(.clear).interactive())
-                }
-                .padding(.trailing, 15)
-                .padding(.top, 18)
-            }
             // Infinity button (bottom right)
             Button(action: {
                 alwaysPlaying.wrappedValue.toggle()
@@ -483,36 +443,6 @@ struct EditPage: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.leading, 16)
                                 .offset(x: 7)
-                        }
-                        // Order Button Menu (vertically centered, right, glass style)
-                        HStack {
-                            Spacer()
-                            Menu {
-                                // This is the base track, so it can swap with any dynamic track
-                                Button(action: { /* Already base, do nothing */ }) {
-                                    HStack {
-                                        Text("Base")
-                                        Spacer()
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
-                                ForEach(0..<editAdditionalTitles.count, id: \.self) { i in
-                                    Button(action: { swapBaseWithDynamic(i) }) {
-                                        HStack {
-                                            Text("Track \(i + 1)")
-                                        }
-                                    }
-                                }
-                            } label: {
-                                Text("B")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(.white)
-                                    .frame(width: 30, height: 30)
-                                    .background(Color.white.opacity(0.0))
-                                    .clipShape(Circle())
-                                    .glassEffect(.regular.tint(.clear).interactive())
-                            }
-                            .padding(.trailing, 15)
                         }
                     }
                 }

@@ -172,30 +172,6 @@ struct AIConfigurePage: View {
                 .padding(.leading, 16)
                 .padding(.top, -4)
             }
-            // Order Button Menu (top right, aligned with infinity button)
-            HStack {
-                Spacer()
-                Menu {
-                    Button(action: { swapBaseWithDynamic(index) }) {
-                        Text("Base")
-                    }
-                    ForEach(0..<createAdditionalTitles.count, id: \.self) { i in
-                        Button(action: { swapBaseWithDynamic(i) }) {
-                            Text("Track \(i + 1)")
-                        }
-                    }
-                } label: {
-                    Text("\(index + 1)")
-                        .font(.system(size: 16))
-                        .foregroundColor(.white)
-                        .frame(width: 30, height: 30)
-                        .background(Color.white.opacity(0.0))
-                        .clipShape(Circle())
-                        .glassEffect(.regular.tint(.clear).interactive())
-                }
-                .padding(.trailing, 15)
-                .padding(.top, 18)
-            }
             // Infinity button (bottom right)
             Button(action: {
                 alwaysPlaying.wrappedValue.toggle()
@@ -256,29 +232,6 @@ struct AIConfigurePage: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.leading, 16)
                             .offset(x: 7)
-                    }
-                    // Order Button Menu (vertically centered, right, glass style)
-                    HStack {
-                        Spacer()
-                        Menu {
-                            Button(action: { /* Already base, do nothing */ }) {
-                                Text("Base")
-                            }
-                            ForEach(0..<createAdditionalTitles.count, id: \.self) { i in
-                                Button(action: { swapBaseWithDynamic(i) }) {
-                                    Text("Track \(i + 1)")
-                                }
-                            }
-                        } label: {
-                            Text("B")
-                                .font(.system(size: 16))
-                                .foregroundColor(.white)
-                                .frame(width: 30, height: 30)
-                                .background(Color.white.opacity(0.0))
-                                .clipShape(Circle())
-                                .glassEffect(.regular.tint(.clear).interactive())
-                        }
-                        .padding(.trailing, 15)
                     }
                 }
                 .frame(height: 108)
