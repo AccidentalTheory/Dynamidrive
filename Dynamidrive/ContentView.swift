@@ -65,6 +65,16 @@ class AudioController: ObservableObject {
             name: AVAudioSession.routeChangeNotification,
             object: AVAudioSession.sharedInstance()
         )
+        
+        // Ensure audio session is properly configured for background playback after a delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.setupAudioSession()
+        }
+        
+        // Also ensure audio session is properly configured after a longer delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.setupAudioSession()
+        }
     }
     
     deinit {
@@ -166,6 +176,13 @@ class AudioController: ObservableObject {
         }
     }
     
+    // Clear Now Playing info when app goes to background or stops
+    func clearNowPlayingInfo() {
+        let nowPlayingInfoCenter = MPNowPlayingInfoCenter.default()
+        nowPlayingInfoCenter.nowPlayingInfo = nil
+        print("[AudioController] Cleared Now Playing info")
+    }
+    
     // Add this new method to adjust volumes based on speed
     func adjustVolumesForSpeed(_ speed: Double) {
         guard isSoundtrackPlaying else { return }
@@ -197,11 +214,34 @@ class AudioController: ObservableObject {
     func setupAudioSession() {
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers, .allowAirPlay, .defaultToSpeaker])
+            // Use more comprehensive options for background audio
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers, .allowAirPlay, .allowBluetooth, .allowBluetoothA2DP])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
-            print("Audio session configured for background playback and Now Playing controls")
+            print("[AudioController] Audio session configured for background playback and Now Playing controls")
+            
+            // Verify the session is active
+            if session.isOtherAudioPlaying {
+                print("[AudioController] Other audio is playing, but our session is active")
+            }
+            
+            // Ensure remote control events are enabled
+            UIApplication.shared.beginReceivingRemoteControlEvents()
+            
         } catch {
-            print("Failed to set up audio session: \(error)")
+            print("[AudioController] Failed to set up audio session: \(error)")
+            // Try a simpler approach if the first one fails
+            do {
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playback, mode: .default)
+                try session.setActive(true, options: .notifyOthersOnDeactivation)
+                print("[AudioController] Audio session configured with simple settings")
+                
+                // Ensure remote control events are enabled even with simple settings
+                UIApplication.shared.beginReceivingRemoteControlEvents()
+                
+            } catch {
+                print("[AudioController] Failed to set up audio session with simple settings: \(error)")
+            }
         }
     }
     
@@ -209,20 +249,28 @@ class AudioController: ObservableObject {
         UIApplication.shared.beginReceivingRemoteControlEvents()
         let commandCenter = MPRemoteCommandCenter.shared()
         
+        // Remove existing targets to prevent duplicates
+        commandCenter.playCommand.removeTarget(nil)
+        commandCenter.pauseCommand.removeTarget(nil)
+        commandCenter.togglePlayPauseCommand.removeTarget(nil)
+        
         commandCenter.playCommand.addTarget { [weak self] event in
             guard let self = self, !self.isSoundtrackPlaying else { return .commandFailed }
+            print("[RemoteControl] Play command received")
             self.toggleSoundtrackPlayback()
             return .success
         }
         
         commandCenter.pauseCommand.addTarget { [weak self] event in
             guard let self = self, self.isSoundtrackPlaying else { return .commandFailed }
+            print("[RemoteControl] Pause command received")
             self.toggleSoundtrackPlayback()
             return .success
         }
         
         commandCenter.togglePlayPauseCommand.addTarget { [weak self] event in
             guard let self = self else { return .commandFailed }
+            print("[RemoteControl] Toggle play/pause command received")
             self.toggleSoundtrackPlayback()
             return .success
         }
@@ -230,13 +278,17 @@ class AudioController: ObservableObject {
         commandCenter.nextTrackCommand.isEnabled = false
         commandCenter.previousTrackCommand.isEnabled = false
         commandCenter.changePlaybackPositionCommand.isEnabled = false
+        
+        print("[AudioController] Remote control setup completed")
     }
     
     func updateNowPlayingInfo() {
         let nowPlayingInfoCenter = MPNowPlayingInfoCenter.default()
         var nowPlayingInfo = [String: Any]()
         
-        nowPlayingInfo[MPMediaItemPropertyTitle] = currentSoundtrackTitle
+        // Always update Now Playing info, even if title is empty
+        let title = currentSoundtrackTitle.isEmpty ? "Dynamidrive" : currentSoundtrackTitle
+        nowPlayingInfo[MPMediaItemPropertyTitle] = title
         nowPlayingInfo[MPMediaItemPropertyArtist] = "Speed: \(Int(locationHandler.speedMPH.rounded())) mph"
         nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = "Dynamidrive Soundtracks"
         nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = isSoundtrackPlaying ? 1.0 : 0.0
@@ -257,17 +309,54 @@ class AudioController: ObservableObject {
         }
         
         nowPlayingInfoCenter.nowPlayingInfo = nowPlayingInfo
+        print("[AudioController] Updated Now Playing info: \(title), playing: \(isSoundtrackPlaying)")
     }
     
     func toggleSoundtrackPlayback() {
+        print("[AudioController] Toggle soundtrack playback called")
+        print("[AudioController] Current state: isSoundtrackPlaying=\(isSoundtrackPlaying)")
+        print("[AudioController] Players count: \(currentPlayers.count)")
+        
         let syncTolerance: TimeInterval = 0.001
         if isSoundtrackPlaying {
+            print("[AudioController] Pausing playback")
             pauseAllPlayersWithEffects()
             stopNowPlayingMonitor()
+            
+            // Update now playing info to reflect paused state
+            updateNowPlayingInfo()
         } else {
+            print("[AudioController] Starting playback")
             // Always re-activate audio session and re-set Now Playing info before starting playback
             setupAudioSession()
+            
+            // Verify audio session is active before proceeding
+            let session = AVAudioSession.sharedInstance()
+            if !session.isOtherAudioPlaying {
+                print("[AudioController] Audio session is active and ready for playback")
+            } else {
+                print("[AudioController] Warning: Other audio is playing, but continuing with playback")
+            }
+            
+            // Ensure remote control is set up
+            setupRemoteControl()
+            
+            // Ensure audio session is properly configured for background playback
+            do {
+                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers, .allowAirPlay, .allowBluetooth, .allowBluetoothA2DP])
+                try session.setActive(true, options: .notifyOthersOnDeactivation)
+                print("[AudioController] Audio session re-configured for background playback")
+            } catch {
+                print("[AudioController] Failed to re-configure audio session: \(error)")
+            }
+            
             updateNowPlayingInfo()
+            
+            // Ensure now playing info is properly set for background playback
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                self.updateNowPlayingInfo()
+            }
+            
             // --- Synchronize all players before playing ---
             let referenceTimes = currentPlayers.compactMap { $0?.currentTime }
             let allExact = referenceTimes.dropFirst().allSatisfy { abs($0 - (referenceTimes.first ?? 0.0)) < syncTolerance }
@@ -302,11 +391,29 @@ class AudioController: ObservableObject {
                     } else {
                         player.volume = calculateVolumeForTrack(at: index, speed: locationHandler.speedMPH)
                     }
+                    print("[AudioController] Player \(index) volume: \(player.volume)")
                     player.play(atTime: startTime)
+                    print("[AudioController] Player \(index) play() called")
                 }
             }
             updateSyncTimer()
             startNowPlayingMonitor()
+            
+            // Ensure now playing info is updated immediately after starting playback
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.updateNowPlayingInfo()
+            }
+            
+            // Also update after a longer delay to ensure it's properly set
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.updateNowPlayingInfo()
+            }
+            
+            // Also update after an even longer delay to ensure it's properly set
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.updateNowPlayingInfo()
+            }
+            
             // If playback was previously interrupted, immediately pause, sync, and play again (without toggling isSoundtrackPlaying)
             if wasInterrupted {
                 wasInterrupted = false // Reset immediately to prevent re-entry
@@ -393,6 +500,19 @@ class AudioController: ObservableObject {
     }
     
     func setCurrentSoundtrack(id: UUID, tracks: [SoundtrackData], players: [AVAudioPlayer?], title: String) {
+        print("[AudioController] Setting current soundtrack: \(title)")
+        print("[AudioController] Tracks count: \(tracks.count)")
+        print("[AudioController] Players count: \(players.count)")
+        
+        // Debug: Check if players are valid
+        for (index, player) in players.enumerated() {
+            if let player = player {
+                print("[AudioController] Player \(index): valid, duration=\(player.duration) seconds")
+            } else {
+                print("[AudioController] Player \(index): nil")
+            }
+        }
+        
         let wasPlaying = isSoundtrackPlaying
         let wasSameSoundtrack = currentSoundtrackTitle == title
         
@@ -435,7 +555,18 @@ class AudioController: ObservableObject {
             }
         }
         
+        // Ensure now playing info is updated immediately
         updateNowPlayingInfo()
+        
+        // Also update after a short delay to ensure it's properly set
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.updateNowPlayingInfo()
+        }
+        
+        // Also update after a longer delay to ensure it's properly set
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.updateNowPlayingInfo()
+        }
     }
     
     private func updateSyncTimer() {
@@ -601,6 +732,7 @@ struct Soundtrack: Identifiable, Codable {
     let title: String
     let tracks: [AudioController.SoundtrackData]
     let cardColor: Color
+    let isAI: Bool // Flag to indicate if this soundtrack was created with AI
     var players: [AVAudioPlayer?] {
         didSet {
             for player in players {
@@ -617,6 +749,7 @@ struct Soundtrack: Identifiable, Codable {
         case title
         case tracks
         case cardColor
+        case isAI
     }
     
     // Custom initializer for decoding
@@ -626,6 +759,12 @@ struct Soundtrack: Identifiable, Codable {
         self.title = try container.decode(String.self, forKey: .title)
         self.tracks = try container.decode([AudioController.SoundtrackData].self, forKey: .tracks)
         self.cardColor = try container.decode(Color.self, forKey: .cardColor)
+        // Handle backward compatibility for existing soundtracks that don't have isAI property
+        if let isAI = try? container.decode(Bool.self, forKey: .isAI) {
+            self.isAI = isAI
+        } else {
+            self.isAI = false // Default to false for existing soundtracks
+        }
         self.players = [] // Initialize as empty; will be set during loadSoundtracks
     }
     
@@ -636,16 +775,18 @@ struct Soundtrack: Identifiable, Codable {
         try container.encode(title, forKey: .title)
         try container.encode(tracks, forKey: .tracks)
         try container.encode(cardColor, forKey: .cardColor)
+        try container.encode(isAI, forKey: .isAI)
         // players is not encoded
     }
     
     // Convenience initializer for creating a new Soundtrack
-    init(id: UUID, title: String, tracks: [AudioController.SoundtrackData], players: [AVAudioPlayer?], cardColor: Color = .clear) {
+    init(id: UUID, title: String, tracks: [AudioController.SoundtrackData], players: [AVAudioPlayer?], cardColor: Color = .clear, isAI: Bool = false) {
         self.id = id
         self.title = title
         self.tracks = tracks
         self.players = players
         self.cardColor = cardColor
+        self.isAI = isAI
     }
 }
 
@@ -675,6 +816,19 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             window.overrideUserInterfaceStyle = .dark
         }
         
+        // Set up audio session for background playback
+        audioController.setupAudioSession()
+        
+        // Ensure audio session is properly configured for background playback
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers, .allowAirPlay, .allowBluetooth, .allowBluetoothA2DP])
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            print("[AppDelegate] Audio session configured for background playback on app launch")
+        } catch {
+            print("[AppDelegate] Failed to configure audio session on app launch: \(error)")
+        }
+        
         // LocationHandler will check hasGrantedLocationPermission internally
         locationHandler.startLocationUpdates()
         return true
@@ -687,6 +841,52 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             return .allButUpsideDown
         } else {
             return .portrait
+        }
+    }
+    
+    // Handle app entering background
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        print("[AppDelegate] App entered background")
+        // Keep audio session active for background playback
+        do {
+            try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("[AppDelegate] Failed to keep audio session active: \(error)")
+        }
+    }
+    
+    // Handle app entering foreground
+    func applicationWillEnterForeground(_ application: UIApplication) {
+        print("[AppDelegate] App entering foreground")
+        // Re-setup audio session if needed
+        audioController.setupAudioSession()
+        
+        // Update now playing info if there's active playback
+        if audioController.isSoundtrackPlaying {
+            audioController.updateNowPlayingInfo()
+        }
+    }
+    
+    // Handle app becoming active
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        print("[AppDelegate] App became active")
+        // Ensure audio session is properly configured
+        audioController.setupAudioSession()
+        
+        // Update now playing info if there's active playback
+        if audioController.isSoundtrackPlaying {
+            audioController.updateNowPlayingInfo()
+        }
+    }
+    
+    // Handle app resigning active
+    func applicationWillResignActive(_ application: UIApplication) {
+        print("[AppDelegate] App will resign active")
+        // Ensure audio session remains active for background playback
+        do {
+            try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("[AppDelegate] Failed to keep audio session active: \(error)")
         }
     }
 }
@@ -744,6 +944,7 @@ struct ContentView: View {
     @State private var isLoading = true
     @State private var showCreatePage = false
     @State private var showVolumePage = false
+    @State private var volumePageSource: AppPage? = nil // Track which page the volume page came from
     @State private var showInfoPage = false
     @State private var showConfigurePage = false
     @State private var showPlaybackPage = false
@@ -878,6 +1079,7 @@ struct ContentView: View {
     // MARK: State for Uploading
     @State private var showUploading: Bool = false // Controls UploadingScreen
     @State private var isUploading: Bool = false // Controls text in UploadingScreen
+    @State private var isDownloading: Bool = false // Controls downloading text in UploadingScreen
     
     @State private var currentPage: AppPage = .loading
     @State private var previousPage: AppPage? = nil
@@ -889,6 +1091,51 @@ struct ContentView: View {
             fatalError("Failed to access documents directory")
         }
         
+        print("[ContentView] Documents directory path: \(baseDirectory.path)")
+        
+        // Create a more visible directory structure
+        let visibleDirectory = baseDirectory.appendingPathComponent("Dynamidrive_Visible_Files")
+        
+        // Create the directory if it doesn't exist
+        if !fileManager.fileExists(atPath: visibleDirectory.path) {
+            do {
+                try fileManager.createDirectory(at: visibleDirectory, withIntermediateDirectories: true, attributes: nil)
+                print("[ContentView] Created visible directory: \(visibleDirectory)")
+                
+                // Create a README file to make the folder visible
+                let readmeURL = visibleDirectory.appendingPathComponent("README.txt")
+                let readmeContent = """
+Dynamidrive App Files
+=====================
+
+This folder contains files created by the Dynamidrive app.
+
+Created on: \(Date())
+
+Contents:
+- soundtracks.json: Soundtrack metadata
+- Various .mp3 files: Audio tracks
+- .dynamidrive_data/: Hidden app data
+
+To find this folder in Files app:
+1. Open Files app
+2. Go to "On My iPhone/iPad"
+3. Look for "Dynamidrive" folder
+4. This folder should be inside
+
+If you can't see it, try:
+- Files app > Browse > On My iPhone/iPad
+- Files app > Recents
+- Files app > Search for "Dynamidrive"
+"""
+                try readmeContent.write(to: readmeURL, atomically: true, encoding: .utf8)
+                print("[ContentView] Created README.txt file")
+                
+            } catch {
+                print("Error creating visible directory: \(error)")
+            }
+        }
+        
         // Create a hidden directory for soundtrack files
         let hiddenDirectory = baseDirectory.appendingPathComponent(".dynamidrive_data")
         
@@ -897,7 +1144,7 @@ struct ContentView: View {
             do {
                 try fileManager.createDirectory(at: hiddenDirectory, withIntermediateDirectories: true, attributes: nil)
                 
-                // Add a .nomedia file to hide media from gallery apps (Android convention, but doesn't hurt)
+           
                 let nomediaPath = hiddenDirectory.appendingPathComponent(".nomedia")
                 if !fileManager.fileExists(atPath: nomediaPath.path) {
                     fileManager.createFile(atPath: nomediaPath.path, contents: nil)
@@ -907,7 +1154,7 @@ struct ContentView: View {
             }
         }
         
-        return hiddenDirectory
+        return baseDirectory
     }
     
     // MARK: Body
@@ -1016,6 +1263,9 @@ struct ContentView: View {
                         case .configure:
                             configureScreen
                                 .transition(GlobalPageTransition)
+                        case .aiConfigure:
+                            aiConfigureScreen
+                                .transition(GlobalPageTransition)
                         case .volume:
                             volumeScreen
                                 .transition(GlobalPageTransition)
@@ -1068,21 +1318,43 @@ struct ContentView: View {
                                         currentPage = .create // Go back to the create page
                                     }
                                 },
+                                showCreatePage: $showCreatePage,
                                 showConfigurePage: $showConfigurePage,
                                 createBaseAudioURL: $createBaseAudioURL,
+                                createBasePlayer: $createBasePlayer,
+                                createBaseIsPlaying: $createBaseIsPlaying,
+                                createBaseOffset: $createBaseOffset,
+                                createBaseShowingFilePicker: $createBaseShowingFilePicker,
+                                createBaseVolume: $createBaseVolume,
                                 createAdditionalZStacks: $createAdditionalZStacks,
                                 createAdditionalTitles: $createAdditionalTitles,
+                                createAdditionalAlwaysPlaying: $createAdditionalAlwaysPlaying,
+                                createBaseTitle: $createBaseTitle,
+                                createSoundtrackTitle: $createSoundtrackTitle,
                                 createReferenceLength: $createReferenceLength,
                                 createNextID: $createNextID,
                                 currentPage: $currentPage,
                                 showUploading: $showUploading,
-                                isUploading: $isUploading
+                                isUploading: $isUploading,
+                                isDownloading: $isDownloading,
+                                soundtracks: $soundtracks,
+                                createAudio1MinimumSpeed: $createAudio1MinimumSpeed,
+                                createAudio1MaximumSpeed: $createAudio1MaximumSpeed,
+                                createAudio2MinimumSpeed: $createAudio2MinimumSpeed,
+                                createAudio2MaximumSpeed: $createAudio2MaximumSpeed,
+                                createAudio3MinimumSpeed: $createAudio3MinimumSpeed,
+                                createAudio3MaximumSpeed: $createAudio3MaximumSpeed,
+                                createAudio4MinimumSpeed: $createAudio4MinimumSpeed,
+                                createAudio4MaximumSpeed: $createAudio4MaximumSpeed,
+                                createAudio5MinimumSpeed: $createAudio5MinimumSpeed,
+                                createAudio5MaximumSpeed: $createAudio5MaximumSpeed
                             )
                             .transition(GlobalPageTransition)
                         case .uploading:
                             UploadingScreen(
                                 isVisible: $showUploading,
-                                isUploading: $isUploading
+                                isUploading: $isUploading,
+                                isDownloading: $isDownloading
                             )
                             .transition(GlobalPageTransition)
                         case .masterSettings:
@@ -1172,10 +1444,36 @@ struct ContentView: View {
             print("After showConfigurePage change: currentPage: \(currentPage), showCreatePage: \(showCreatePage)")
         }
         .onChange(of: showVolumePage, initial: false) { oldValue, newValue in
+            print("showVolumePage changed to: \(newValue), volumePageSource: \(volumePageSource.map { String(describing: $0) } ?? "nil")")
+            print("Current page before change: \(currentPage)")
             withAnimation(.easeInOut(duration: 0.2)) {
                 let oldPage = currentPage
                 previousPage = newValue ? oldPage : .volume
-                currentPage = newValue ? .volume : .configure
+                if newValue {
+                    // Store the current page as the source when opening volume page
+                    volumePageSource = currentPage
+                    print("Setting volumePageSource to: \(currentPage)")
+                    currentPage = .volume
+                } else {
+                    // Navigate back to the source page when closing volume page
+                    if let source = volumePageSource {
+                        print("Navigating back to source: \(source)")
+                        currentPage = source
+                    } else {
+                        // Fallback to configure page if no source is set
+                        print("No source set, falling back to configure")
+                        currentPage = .configure
+                    }
+                }
+            }
+            print("After showVolumePage change: currentPage: \(currentPage)")
+            
+            // Reset volumePageSource after navigation is complete
+            if !newValue {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    volumePageSource = nil
+                    print("Reset volumePageSource to nil")
+                }
             }
         }
         .onChange(of: showPlaybackPage, initial: false) { _, newValue in
@@ -1296,6 +1594,19 @@ struct ContentView: View {
             // Update AppDelegate with current page for orientation control
             AppDelegate.currentPage = newPage
             
+            // Handle transition from uploading to aiConfigure
+            if oldPage == .uploading && newPage == .aiConfigure {
+                print("[ContentView] Transitioning from uploading to aiConfigure, hiding uploading screen")
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showUploading = false
+                    isUploading = false
+                    isDownloading = false
+                }
+            }
+            
+            // Debug: Log all page transitions
+            print("[ContentView] Page transition: \(oldPage) -> \(newPage)")
+            
             if newPage == .playback || newPage == .settings {
                 setDeviceOrientation(.portrait)
             }
@@ -1322,6 +1633,26 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             if audioController.isSoundtrackPlaying {
                 print("App returning to foreground, audio already playing with Now Playing controls")
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .aiDownloadCompleted)) { notification in
+            print("[ContentView] Received aiDownloadCompleted notification")
+            if let downloadedTracks = notification.object as? [SeparatedTrack] {
+                print("[ContentView] Download completed with \(downloadedTracks.count) tracks")
+                
+                // Set up the tracks for the AI Configure page
+                setupAITracks(downloadedTracks: downloadedTracks)
+                
+                // If we're currently on the uploading page, navigate to AI Configure
+                if currentPage == .uploading {
+                    print("[ContentView] Currently on uploading page, navigating to aiConfigure")
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showUploading = false
+                        isUploading = false
+                        isDownloading = false
+                        currentPage = .aiConfigure
+                    }
+                }
             }
         }
         .sheet(isPresented: $showPlaybackPage) {
@@ -1370,6 +1701,7 @@ struct ContentView: View {
     private var volumeScreen: some View {
         VolumeScreen( 
             showVolumePage: $showVolumePage,
+            volumePageSource: $volumePageSource,
             createBaseTitle: $createBaseTitle,
             createBaseVolume: Binding(
                 get: { Double(createBaseVolume) },  // Convert Float to Double for VolumeScreen
@@ -1386,6 +1718,36 @@ struct ContentView: View {
     private var configureScreen: some View {
         ConfigurePage(
             showConfigurePage: $showConfigurePage,
+            showCreatePage: $showCreatePage,
+            showVolumePage: $showVolumePage,
+            createBaseAudioURL: $createBaseAudioURL,
+            createAdditionalZStacks: $createAdditionalZStacks,
+            createAdditionalTitles: $createAdditionalTitles,
+            createAdditionalAlwaysPlaying: $createAdditionalAlwaysPlaying,
+            createAudio1MinimumSpeed: $createAudio1MinimumSpeed,
+            createAudio1MaximumSpeed: $createAudio1MaximumSpeed,
+            createAudio2MinimumSpeed: $createAudio2MinimumSpeed,
+            createAudio2MaximumSpeed: $createAudio2MaximumSpeed,
+            createAudio3MinimumSpeed: $createAudio3MinimumSpeed,
+            createAudio3MaximumSpeed: $createAudio3MaximumSpeed,
+            createAudio4MinimumSpeed: $createAudio4MinimumSpeed,
+            createAudio4MaximumSpeed: $createAudio4MaximumSpeed,
+            createAudio5MinimumSpeed: $createAudio5MinimumSpeed,
+            createAudio5MaximumSpeed: $createAudio5MaximumSpeed,
+            createSoundtrackTitle: $createSoundtrackTitle,
+            createBaseTitle: $createBaseTitle,
+            selectedCardColor: $selectedCardColor,
+            handleDoneAction: handleDoneAction
+        )
+    }
+    
+    // MARK: AI Configure Page
+    private var aiConfigureScreen: some View {
+        AIConfigurePage(
+            showAIConfigurePage: Binding(
+                get: { currentPage == .aiConfigure },
+                set: { show in if (!show) { currentPage = .main } }
+            ),
             showCreatePage: $showCreatePage,
             showVolumePage: $showVolumePage,
             createBaseAudioURL: $createBaseAudioURL,
@@ -1949,6 +2311,243 @@ struct ContentView: View {
         .padding()
     }
     
+    // MARK: - AI Track Setup
+    private func setupAITracks(downloadedTracks: [SeparatedTrack]) {
+        print("[ContentView] Setting up AI tracks with \(downloadedTracks.count) tracks")
+        
+        // Debug: List all files in AI_Downloaded_Files directory
+        listAIDownloadedFiles()
+        
+        // Set up tracks with converted compressed audio files
+        setupTracksWithConvertedFiles(tracks: downloadedTracks)
+    }
+    
+    private func listAIDownloadedFiles() {
+        let fileManager = FileManager.default
+        guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            print("[ContentView] Failed to access documents directory")
+            return
+        }
+        
+        let aiDownloadedFilesPath = documentsDirectory.appendingPathComponent("AI_Downloaded_Files")
+        print("[ContentView] Checking AI_Downloaded_Files directory: \(aiDownloadedFilesPath.path)")
+        
+        do {
+            let contents = try fileManager.contentsOfDirectory(at: aiDownloadedFilesPath, includingPropertiesForKeys: nil)
+            print("[ContentView] Found \(contents.count) files in AI_Downloaded_Files:")
+            for file in contents {
+                let attrs = try? fileManager.attributesOfItem(atPath: file.path)
+                let fileSize = attrs?[.size] as? UInt64 ?? 0
+                print("[ContentView] - \(file.lastPathComponent) (\(fileSize) bytes)")
+            }
+        } catch {
+            print("[ContentView] Error listing AI_Downloaded_Files: \(error)")
+        }
+    }
+    
+    private func setupTracksWithConvertedFiles(tracks: [SeparatedTrack]) {
+        // Set up audio session for playback
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+            print("[ContentView] Audio session configured for playback")
+        } catch {
+            print("[ContentView] Failed to configure audio session: \(error.localizedDescription)")
+        }
+        
+        // Find the actual converted files in AI_Downloaded_Files directory
+        let fileManager = FileManager.default
+        let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let aiDownloadedFilesPath = documentsPath.appendingPathComponent("AI_Downloaded_Files")
+        
+        // Helper function to find the actual file for a track
+        func findActualFile(for track: SeparatedTrack) -> URL? {
+            // Debug: Print the track name to understand what we're looking for
+            print("[ContentView] Looking for file for track: \(track.name)")
+            
+            // The track.name contains just the track type (e.g., "drums.wav", "bass.wav")
+            // But the actual files have the full base name (e.g., "Zen Garden_drums.m4a")
+            // We need to find files that end with the track type but have the full base name
+            
+            let possibleExtensions = [".m4a", ".mp3", ".wav"]
+            let trackType = track.name.replacingOccurrences(of: ".wav", with: "")
+            
+            // List all files in the directory to find matching ones
+            do {
+                let contents = try fileManager.contentsOfDirectory(at: aiDownloadedFilesPath, includingPropertiesForKeys: nil)
+                for file in contents {
+                    let fileName = file.lastPathComponent
+                    // Check if this file ends with our track type and has a valid extension
+                    for ext in possibleExtensions {
+                        let expectedSuffix = trackType + ext
+                        if fileName.hasSuffix(expectedSuffix) {
+                            print("[ContentView] Found actual file for \(track.name): \(fileName)")
+                            return file
+                        }
+                    }
+                }
+            } catch {
+                print("[ContentView] Error listing directory: \(error)")
+            }
+            
+            print("[ContentView] Warning: No actual file found for \(track.name)")
+            return nil
+        }
+        
+        // Ensure all tracks come from the same base audio file
+        guard let firstTrack = tracks.first else {
+            print("[ContentView] No tracks found")
+            return
+        }
+        
+        let targetBaseName = firstTrack.baseName
+        print("[ContentView] Ensuring all tracks come from base audio file: \(targetBaseName)")
+        
+        // Filter tracks to only include those from the same base audio file
+        let sameBaseTracks = tracks.filter { $0.baseName == targetBaseName }
+        print("[ContentView] Found \(sameBaseTracks.count) tracks from base audio file: \(targetBaseName)")
+        
+        // Organize tracks by type and find their actual files
+        let drumsTrack = sameBaseTracks.first { $0.trackType == "Drums" }
+        let bassTrack = sameBaseTracks.first { $0.trackType == "Bass" }
+        let vocalsTrack = sameBaseTracks.first { $0.trackType == "Vocals" }
+        let otherTrack = sameBaseTracks.first { $0.trackType == "Other" }
+        
+        // Find actual file URLs
+        let drumsURL = drumsTrack.flatMap { findActualFile(for: $0) }
+        let bassURL = bassTrack.flatMap { findActualFile(for: $0) }
+        let vocalsURL = vocalsTrack.flatMap { findActualFile(for: $0) }
+        let otherURL = otherTrack.flatMap { findActualFile(for: $0) }
+        
+        print("[ContentView] Organized tracks - Drums: \(drumsTrack?.name ?? "nil"), Bass: \(bassTrack?.name ?? "nil"), Vocals: \(vocalsTrack?.name ?? "nil"), Other: \(otherTrack?.name ?? "nil")")
+        print("[ContentView] Actual file URLs - Drums: \(drumsURL?.path ?? "nil"), Bass: \(bassURL?.path ?? "nil"), Vocals: \(vocalsURL?.path ?? "nil"), Other: \(otherURL?.path ?? "nil")")
+        
+        // Set base audio (Drums)
+        if let drumsURL = drumsURL {
+            print("[ContentView] Setting drums as base audio: \(drumsURL)")
+            createBaseAudioURL = drumsURL
+            createBaseTitle = "Drums"
+            
+            // Create AVAudioPlayer for drums (using try? like manual picker)
+            if let player = try? AVAudioPlayer(contentsOf: drumsURL) {
+                player.prepareToPlay()
+                player.volume = mapVolume(createBaseVolume)
+                createBasePlayer = player
+                print("[ContentView] Created base player for drums with duration: \(player.duration) seconds")
+            } else {
+                print("[ContentView] Failed to create base player for drums")
+                print("[ContentView] File path: \(drumsURL.path)")
+                print("[ContentView] File exists: \(FileManager.default.fileExists(atPath: drumsURL.path))")
+                
+                // Try to get file attributes for debugging
+                if let attrs = try? FileManager.default.attributesOfItem(atPath: drumsURL.path) {
+                    print("[ContentView] File size: \(attrs[.size] ?? "unknown")")
+                    print("[ContentView] File type: \(attrs[.type] ?? "unknown")")
+                }
+            }
+        }
+        
+        // Set up dynamic tracks
+        var additionalZStacks: [ZStackData] = []
+        var additionalTitles: [String] = []
+        var additionalAlwaysPlaying: [Bool] = []
+        
+        // Track 1: Bass
+        if let bassURL = bassURL {
+            print("[ContentView] Adding bass as dynamic track 1: \(bassURL)")
+            var bassZStack = ZStackData(id: createNextID)
+            bassZStack.audioURL = bassURL
+            bassZStack.player = createAudioPlayer(for: bassURL)
+            bassZStack.volume = 0.0
+            additionalZStacks.append(bassZStack)
+            additionalTitles.append("Bass")
+            additionalAlwaysPlaying.append(false)
+            createNextID += 1
+        }
+        
+        // Track 2: Vocals
+        if let vocalsURL = vocalsURL {
+            print("[ContentView] Adding vocals as dynamic track 2: \(vocalsURL)")
+            var vocalsZStack = ZStackData(id: createNextID)
+            vocalsZStack.audioURL = vocalsURL
+            vocalsZStack.player = createAudioPlayer(for: vocalsURL)
+            vocalsZStack.volume = 0.0
+            additionalZStacks.append(vocalsZStack)
+            additionalTitles.append("Vocals")
+            additionalAlwaysPlaying.append(false)
+            createNextID += 1
+        }
+        
+        // Track 3: Other
+        if let otherURL = otherURL {
+            print("[ContentView] Adding other as dynamic track 3: \(otherURL)")
+            var otherZStack = ZStackData(id: createNextID)
+            otherZStack.audioURL = otherURL
+            otherZStack.player = createAudioPlayer(for: otherURL)
+            otherZStack.volume = 0.0
+            additionalZStacks.append(otherZStack)
+            additionalTitles.append("Other")
+            additionalAlwaysPlaying.append(false)
+            createNextID += 1
+        }
+        
+        // Update CreatePage bindings
+        createAdditionalZStacks = additionalZStacks
+        createAdditionalTitles = additionalTitles
+        createAdditionalAlwaysPlaying = additionalAlwaysPlaying
+        
+        // Set default speed ranges for dynamic tracks
+        createAudio1MinimumSpeed = 0
+        createAudio1MaximumSpeed = 80
+        createAudio2MinimumSpeed = 0
+        createAudio2MaximumSpeed = 80
+        createAudio3MinimumSpeed = 0
+        createAudio3MaximumSpeed = 80
+        
+        print("[ContentView] Successfully set up AI tracks with \(additionalZStacks.count) dynamic tracks")
+        print("[ContentView] Base audio URL: \(createBaseAudioURL?.path ?? "nil")")
+        print("[ContentView] Base player: \(createBasePlayer != nil ? "created" : "nil")")
+        print("[ContentView] Additional ZStacks count: \(createAdditionalZStacks.count)")
+        for (index, zstack) in createAdditionalZStacks.enumerated() {
+            print("[ContentView] ZStack \(index): audioURL=\(zstack.audioURL?.path ?? "nil"), player=\(zstack.player != nil ? "created" : "nil")")
+        }
+    }
+    
+    private func createAudioPlayer(for url: URL) -> AVAudioPlayer? {
+        print("[ContentView] Attempting to create audio player for: \(url.lastPathComponent)")
+        print("[ContentView] Full path: \(url.path)")
+        print("[ContentView] File exists: \(FileManager.default.fileExists(atPath: url.path))")
+        
+        if let player = try? AVAudioPlayer(contentsOf: url) {
+            player.prepareToPlay()
+            player.volume = 1.0
+            print("[ContentView] Successfully created audio player for \(url.lastPathComponent) with duration: \(player.duration) seconds")
+            return player
+        } else {
+            print("[ContentView] Failed to create audio player for \(url.lastPathComponent)")
+            print("[ContentView] File path: \(url.path)")
+            print("[ContentView] File exists: \(FileManager.default.fileExists(atPath: url.path))")
+            
+            // Try to get file attributes for debugging
+            if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path) {
+                print("[ContentView] File size: \(attrs[.size] ?? "unknown")")
+                print("[ContentView] File type: \(attrs[.type] ?? "unknown")")
+            }
+            
+            // Try to read the file to see if it's accessible
+            do {
+                let data = try Data(contentsOf: url)
+                print("[ContentView] File is readable, size: \(data.count) bytes")
+            } catch {
+                print("[ContentView] File is not readable: \(error.localizedDescription)")
+            }
+            
+            return nil
+        }
+    }
+    
+
+    
     // MARK: - Persistence Functions
     func saveSoundtracks() {
         let fileManager = FileManager.default
@@ -1964,8 +2563,63 @@ struct ContentView: View {
             let data = try encoder.encode(soundtracks)
             try data.write(to: fileURL, options: .atomic)
             print("Saved soundtracks to \(fileURL.path)")
+            
+            // Also create a copy in a more accessible location
+            createAccessibleCopy()
         } catch {
             print("Failed to save soundtracks: \(error)")
+        }
+    }
+    
+    private func createAccessibleCopy() {
+        let fileManager = FileManager.default
+        guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return
+        }
+        
+        // Create a more accessible folder
+        let accessibleFolder = documentsDirectory.appendingPathComponent("Dynamidrive_Accessible")
+        do {
+            if !fileManager.fileExists(atPath: accessibleFolder.path) {
+                try fileManager.createDirectory(at: accessibleFolder, withIntermediateDirectories: true)
+                print("[ContentView] Created accessible folder: \(accessibleFolder)")
+            }
+            
+            // Copy soundtracks.json to accessible location
+            let sourceURL = documentsDirectory.appendingPathComponent("soundtracks.json")
+            let destURL = accessibleFolder.appendingPathComponent("soundtracks.json")
+            if fileManager.fileExists(atPath: sourceURL.path) {
+                try fileManager.copyItem(at: sourceURL, to: destURL)
+                print("[ContentView] Copied soundtracks.json to accessible location")
+            }
+            
+            // Create a README file with instructions
+            let readmeURL = accessibleFolder.appendingPathComponent("README.txt")
+            let readmeContent = """
+Dynamidrive App - Accessible Files
+==================================
+
+This folder contains accessible copies of Dynamidrive app files.
+
+Created on: \(Date())
+
+Files:
+- soundtracks.json: Soundtrack metadata
+
+To find this folder:
+1. Open Files app
+2. Go to "On My iPhone/iPad" 
+3. Look for "Dynamidrive" folder
+4. Inside should be "Dynamidrive_Accessible" folder
+
+If you can't see it, the app may not have permission to create visible folders.
+Check the console output for the exact file paths.
+"""
+            try readmeContent.write(to: readmeURL, atomically: true, encoding: .utf8)
+            print("[ContentView] Created README.txt in accessible folder")
+            
+        } catch {
+            print("[ContentView] Error creating accessible copy: \(error)")
         }
     }
     
@@ -1976,12 +2630,25 @@ struct ContentView: View {
             return
         }
         
-        let fileURL = documentsDirectory.appendingPathComponent("soundtracks.json")
-        guard fileManager.fileExists(atPath: fileURL.path) else {
-            print("No saved soundtracks found at \(fileURL.path)")
-            return
+        // Debug: List all files in Documents directory
+        print("[ContentView] === LISTING ALL FILES IN DOCUMENTS DIRECTORY ===")
+        do {
+            let contents = try fileManager.contentsOfDirectory(at: documentsDirectory, includingPropertiesForKeys: nil)
+            print("[ContentView] Documents directory: \(documentsDirectory.path)")
+            print("[ContentView] All files in Documents directory:")
+            for file in contents {
+                if let attrs = try? fileManager.attributesOfItem(atPath: file.path), let fileSize = attrs[.size] as? UInt64 {
+                    print("  - \(file.lastPathComponent) (\(fileSize) bytes)")
+                } else {
+                    print("  - \(file.lastPathComponent)")
+                }
+            }
+        } catch {
+            print("[ContentView] Error listing Documents directory: \(error)")
         }
+        print("[ContentView] === END OF FILE LISTING ===")
         
+        let fileURL = documentsDirectory.appendingPathComponent("soundtracks.json")
         do {
             let data = try Data(contentsOf: fileURL)
             let decoder = JSONDecoder()
@@ -2005,11 +2672,12 @@ struct ContentView: View {
                                                   title: loadedSoundtracks[i].title,
                                                   tracks: tracks,
                                                   players: players,
-                                                  cardColor: loadedSoundtracks[i].cardColor)
+                                                  cardColor: loadedSoundtracks[i].cardColor,
+                                                  isAI: loadedSoundtracks[i].isAI)
             }
             
             soundtracks = loadedSoundtracks
-            print("Loaded \(soundtracks.count) soundtracks from \(fileURL.path)")
+            print("Loaded \(loadedSoundtracks.count) soundtracks from \(fileURL.path)")
         } catch {
             print("Failed to load soundtracks: \(error)")
         }
@@ -2184,6 +2852,33 @@ struct ContentView: View {
         showConfigurePage = false
     }
     
+    private func cleanupWAVFiles() {
+        let fileManager = FileManager.default
+        guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            print("[ContentView] Failed to access documents directory for cleanup")
+            return
+        }
+        
+        let aiDownloadedFilesPath = documentsDirectory.appendingPathComponent("AI_Downloaded_Files")
+        
+        do {
+            let contents = try fileManager.contentsOfDirectory(at: aiDownloadedFilesPath, includingPropertiesForKeys: nil)
+            var deletedCount = 0
+            
+            for file in contents {
+                let fileName = file.lastPathComponent
+                // Delete all files in the AI_Downloaded_Files directory
+                try fileManager.removeItem(at: file)
+                print("[ContentView] Cleaned up file: \(fileName)")
+                deletedCount += 1
+            }
+            
+            print("[ContentView] Cleanup completed: deleted \(deletedCount) files from AI_Downloaded_Files")
+        } catch {
+            print("[ContentView] Error during cleanup: \(error)")
+        }
+    }
+    
     private func deleteSoundtrack(_ soundtrack: Soundtrack) {
         // Ensure there is at least one track before attempting to access it
         guard let firstTrack = soundtrack.tracks.first else {
@@ -2210,11 +2905,14 @@ struct ContentView: View {
     }
     
     private func handleDoneAction() {
+        print("=== handleDoneAction CALLED ===")
+        print("[ContentView] handleDoneAction called")
         let successHaptic = UINotificationFeedbackGenerator()
         successHaptic.notificationOccurred(.success)
         var tracks: [AudioController.SoundtrackData] = []
         
         if let baseURL = createBaseAudioURL {
+            print("[ContentView] Adding base track: \(baseURL.lastPathComponent)")
             tracks.append(AudioController.SoundtrackData(
                 audioFileName: baseURL.lastPathComponent,
                 displayName: createBaseTitle,
@@ -2222,10 +2920,13 @@ struct ContentView: View {
                 minimumSpeed: 0,
                 maximumSpeed: 0
             ))
+        } else {
+            print("[ContentView] No base audio URL found")
         }
         
         for (index, zStack) in createAdditionalZStacks.enumerated() {
             if let audioURL = zStack.audioURL {
+                print("[ContentView] Adding additional track \(index): \(audioURL.lastPathComponent)")
                 let minSpeed: Int
                 let maxSpeed: Int
                 switch index {
@@ -2255,23 +2956,102 @@ struct ContentView: View {
                     minimumSpeed: minSpeed,
                     maximumSpeed: maxSpeed
                 ))
+            } else {
+                print("[ContentView] Additional track \(index) has no audio URL")
             }
         }
         
+        print("[ContentView] Creating players for \(tracks.count) tracks")
+        print("[ContentView] Tracks to create players for:")
+        for (index, track) in tracks.enumerated() {
+            print("[ContentView] Track \(index): \(track.displayName) - \(track.audioFileName)")
+        }
         let players = tracks.map { track in
             let fileManager = FileManager.default
             guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-                print("Failed to access documents directory")
+                print("[ContentView] Failed to access documents directory")
                 return nil as AVAudioPlayer?
             }
-            let audioURL = documentsDirectory.appendingPathComponent(track.audioFileName)
+            
+            // Check if this is an AI separated track (stored in AI_Downloaded_Files)
+            let aiDownloadedFilesPath = documentsDirectory.appendingPathComponent("AI_Downloaded_Files")
+            
+            // For AI separated tracks, try different file extensions (.m4a, .mp3, .wav)
+            // The track.audioFileName already contains the full filename, so we need to handle it properly
+            var audioURL: URL?
+            
+            // First, try to find the exact file in AI_Downloaded_Files directory
+            let exactFileURL = aiDownloadedFilesPath.appendingPathComponent(track.audioFileName)
+            if fileManager.fileExists(atPath: exactFileURL.path) {
+                audioURL = exactFileURL
+                print("[ContentView] Using AI separated track (exact match): \(exactFileURL.path)")
+            } else {
+                // If exact match not found, try different extensions
+                let baseName = track.audioFileName.replacingOccurrences(of: ".mp3", with: "").replacingOccurrences(of: ".m4a", with: "").replacingOccurrences(of: ".wav", with: "")
+                let possibleExtensions = [".m4a", ".mp3", ".wav"]
+                
+                for ext in possibleExtensions {
+                    let testFileName = baseName + ext
+                    let testURL = aiDownloadedFilesPath.appendingPathComponent(testFileName)
+                    if fileManager.fileExists(atPath: testURL.path) {
+                        audioURL = testURL
+                        print("[ContentView] Using AI separated track (extension match): \(testURL.path)")
+                        break
+                    }
+                }
+            }
+            
+            // If not found in AI_Downloaded_Files, try the main documents directory
+            if audioURL == nil {
+                audioURL = documentsDirectory.appendingPathComponent(track.audioFileName)
+                print("[ContentView] Using regular track: \(audioURL!.path)")
+            }
+            
+            // Ensure we have a valid URL
+            guard let finalAudioURL = audioURL else {
+                print("[ContentView] No valid audio URL found for \(track.audioFileName)")
+                return nil as AVAudioPlayer?
+            }
+            
+            // Debug: Check file details
+            print("[ContentView] Attempting to create player for: \(track.audioFileName)")
+            print("[ContentView] Full URL: \(finalAudioURL.path)")
+            print("[ContentView] File exists: \(fileManager.fileExists(atPath: finalAudioURL.path))")
+            
+            if let attrs = try? fileManager.attributesOfItem(atPath: finalAudioURL.path) {
+                print("[ContentView] File size: \(attrs[.size] ?? "unknown") bytes")
+            }
+            
             do {
-                let player = try AVAudioPlayer(contentsOf: audioURL)
+                let player = try AVAudioPlayer(contentsOf: finalAudioURL)
                 player.volume = mapVolume(track.maximumVolume)
                 player.prepareToPlay()
+                print("[ContentView] Successfully created player for \(track.audioFileName) with duration: \(player.duration) seconds")
                 return player
             } catch {
-                print("Failed to create AVAudioPlayer for \(track.audioFileName): \(error)")
+                print("[ContentView] Failed to create AVAudioPlayer for \(track.audioFileName): \(error)")
+                print("[ContentView] Attempted URL: \(finalAudioURL.path)")
+                print("[ContentView] File exists: \(fileManager.fileExists(atPath: finalAudioURL.path))")
+                
+                // Try to read the file to see if it's accessible
+                do {
+                    let data = try Data(contentsOf: finalAudioURL)
+                    print("[ContentView] File is readable, size: \(data.count) bytes")
+                    
+                    // Check file header to see what format it actually is
+                    let header = data.prefix(16)
+                    print("[ContentView] File header (hex): \(header.map { String(format: "%02x", $0) }.joined())")
+                    
+                    // Check if it's M4A (should start with 'ftyp')
+                    if header.count >= 4 && String(data: header.prefix(4), encoding: .ascii) == "ftyp" {
+                        print("[ContentView] File is M4A format")
+                    } else {
+                        print("[ContentView] File format unknown")
+                    }
+                } catch {
+                    print("[ContentView] File is not readable: \(error.localizedDescription)")
+                }
+                
                 return nil as AVAudioPlayer?
             }
         }
@@ -2284,9 +3064,71 @@ struct ContentView: View {
             titleCount += 1
         }
         
-        // Append the new soundtrack with the unique title
-        soundtracks.append(Soundtrack(id: UUID(), title: newTitle, tracks: tracks, players: players, cardColor: selectedCardColor))
+        // Debug: Print track and player information
+        print("[ContentView] Creating soundtrack with \(tracks.count) tracks:")
+        for (index, track) in tracks.enumerated() {
+            print("[ContentView] Track \(index): \(track.displayName) - \(track.audioFileName)")
+            if index < players.count {
+                print("[ContentView] Player \(index): \(players[index] != nil ? "created" : "nil")")
+                if let player = players[index] {
+                    print("[ContentView] Player \(index) duration: \(player.duration) seconds")
+                }
+            }
+        }
+        
+        // Debug: Check if any players were created
+        let validPlayers = players.compactMap { $0 }
+        print("[ContentView] Valid players count: \(validPlayers.count) out of \(players.count)")
+        
+        // For AI soundtracks, copy files to main documents directory before cleanup
+        if true { // This is always true for AI soundtracks created in this flow
+            let fileManager = FileManager.default
+            guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+                print("[ContentView] Failed to access documents directory")
+                return
+            }
+            
+            let aiDownloadedFilesPath = documentsDirectory.appendingPathComponent("AI_Downloaded_Files")
+            
+            // Copy AI files to main documents directory and update track filenames
+            var updatedTracks: [AudioController.SoundtrackData] = []
+            for track in tracks {
+                let sourceURL = aiDownloadedFilesPath.appendingPathComponent(track.audioFileName)
+                let destURL = documentsDirectory.appendingPathComponent(track.audioFileName)
+                
+                if fileManager.fileExists(atPath: sourceURL.path) {
+                    do {
+                        // Remove existing file if it exists
+                        if fileManager.fileExists(atPath: destURL.path) {
+                            try fileManager.removeItem(at: destURL)
+                        }
+                        // Copy file to main documents directory
+                        try fileManager.copyItem(at: sourceURL, to: destURL)
+                        print("[ContentView] Copied AI file: \(track.audioFileName) to main documents directory")
+                        updatedTracks.append(track)
+                    } catch {
+                        print("[ContentView] Failed to copy AI file \(track.audioFileName): \(error)")
+                        // Keep original track if copy fails
+                        updatedTracks.append(track)
+                    }
+                } else {
+                    print("[ContentView] AI file not found: \(track.audioFileName)")
+                    // Keep original track if file not found
+                    updatedTracks.append(track)
+                }
+            }
+            
+            // Create soundtrack with updated tracks
+            soundtracks.append(Soundtrack(id: UUID(), title: newTitle, tracks: updatedTracks, players: players, cardColor: selectedCardColor, isAI: true))
+        } else {
+            // Append the new soundtrack with the unique title (for non-AI soundtracks)
+            soundtracks.append(Soundtrack(id: UUID(), title: newTitle, tracks: tracks, players: players, cardColor: selectedCardColor, isAI: true))
+        }
+        
         pauseAllAudio()
+        
+        // Clean up WAV files from AI_Downloaded_Files directory
+        cleanupWAVFiles()
         
         // Reset state before animation
         resetCreatePage()
@@ -2570,15 +3412,36 @@ struct ContentView: View {
                     currentPage = .create // Go back to the create page
                 }
             },
+            showCreatePage: $showCreatePage,
             showConfigurePage: $showConfigurePage,
             createBaseAudioURL: $createBaseAudioURL,
+            createBasePlayer: $createBasePlayer,
+            createBaseIsPlaying: $createBaseIsPlaying,
+            createBaseOffset: $createBaseOffset,
+            createBaseShowingFilePicker: $createBaseShowingFilePicker,
+            createBaseVolume: $createBaseVolume,
             createAdditionalZStacks: $createAdditionalZStacks,
             createAdditionalTitles: $createAdditionalTitles,
+            createAdditionalAlwaysPlaying: $createAdditionalAlwaysPlaying,
+            createBaseTitle: $createBaseTitle,
+            createSoundtrackTitle: $createSoundtrackTitle,
             createReferenceLength: $createReferenceLength,
             createNextID: $createNextID,
             currentPage: $currentPage,
             showUploading: $showUploading,
-            isUploading: $isUploading
+            isUploading: $isUploading,
+            isDownloading: $isDownloading,
+            soundtracks: $soundtracks,
+            createAudio1MinimumSpeed: $createAudio1MinimumSpeed,
+            createAudio1MaximumSpeed: $createAudio1MaximumSpeed,
+            createAudio2MinimumSpeed: $createAudio2MinimumSpeed,
+            createAudio2MaximumSpeed: $createAudio2MaximumSpeed,
+            createAudio3MinimumSpeed: $createAudio3MinimumSpeed,
+            createAudio3MaximumSpeed: $createAudio3MaximumSpeed,
+            createAudio4MinimumSpeed: $createAudio4MinimumSpeed,
+            createAudio4MaximumSpeed: $createAudio4MaximumSpeed,
+            createAudio5MinimumSpeed: $createAudio5MinimumSpeed,
+            createAudio5MaximumSpeed: $createAudio5MaximumSpeed
         )
     }
 }

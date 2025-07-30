@@ -4,21 +4,49 @@ import AVFoundation
 
 struct AIUploadPage: View {
     let onBack: () -> Void
+    @Binding var showCreatePage: Bool
     @Binding var showConfigurePage: Bool
     @Binding var createBaseAudioURL: URL?
+    @Binding var createBasePlayer: AVAudioPlayer?
+    @Binding var createBaseIsPlaying: Bool
+    @Binding var createBaseOffset: CGFloat
+    @Binding var createBaseShowingFilePicker: Bool
+    @Binding var createBaseVolume: Float
     @Binding var createAdditionalZStacks: [ZStackData]
     @Binding var createAdditionalTitles: [String]
+    @Binding var createAdditionalAlwaysPlaying: [Bool]
+    @Binding var createBaseTitle: String
+    @Binding var createSoundtrackTitle: String
     @Binding var createReferenceLength: TimeInterval?
     @Binding var createNextID: Int
     @Binding var currentPage: AppPage
     @Binding var showUploading: Bool
     @Binding var isUploading: Bool
+    @Binding var isDownloading: Bool
+    @Binding var soundtracks: [Soundtrack]
+    @Binding var createAudio1MinimumSpeed: Int
+    @Binding var createAudio1MaximumSpeed: Int
+    @Binding var createAudio2MinimumSpeed: Int
+    @Binding var createAudio2MaximumSpeed: Int
+    @Binding var createAudio3MinimumSpeed: Int
+    @Binding var createAudio3MaximumSpeed: Int
+    @Binding var createAudio4MinimumSpeed: Int
+    @Binding var createAudio4MaximumSpeed: Int
+    @Binding var createAudio5MinimumSpeed: Int
+    @Binding var createAudio5MaximumSpeed: Int
     
     @State private var showFileImporter = false
     @State private var selectedFileURL: URL?
-    @State private var showBaseTrackSheet = false
     @State private var downloadedTrackURLs: [URL] = []
-    @State private var selectedBaseIndex: Int = 0
+    @State private var downloadedTrackTypes: [String] = []
+    @State private var pollingTimer: Timer?
+    @State private var currentBaseName: String?
+    @State private var errorMessage: String?
+    @State private var successMessage: String?
+    @State private var filesDownloaded: Bool = false
+    @State private var pollingStartTime: Date?
+    @State private var discoveredTracks: [SeparatedTrack] = []
+    private let maxPollingDuration: TimeInterval = 300 // 5 minutes max
 
     var body: some View {
         ZStack {
@@ -33,7 +61,7 @@ struct AIUploadPage: View {
                 leftButtonSymbol: "",
                 rightButtonSymbol: "",
                 bottomButtons: [
-                    PageButton(label: { Image(systemName: "chevron.left").globalButtonStyle() }, action: onBack),
+                    PageButton(label: { Image(systemName: "arrow.uturn.backward").globalButtonStyle() }, action: onBack),
                     PageButton(label: { Image(systemName: "arrow.up.circle.dotted").globalButtonStyle() }, action: {
                         showFileImporter = true
                     })
@@ -78,6 +106,26 @@ struct AIUploadPage: View {
                             .fontWeight(.medium)
                             .foregroundColor(.white.opacity(0.8))
                     }
+                    
+                    // Error message if any
+                    if let errorMessage = errorMessage {
+                        Text(errorMessage)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                    
+                    // Success message if any
+                    if let successMessage = successMessage {
+                        Text(successMessage)
+                            .foregroundColor(.green)
+                            .font(.caption)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                        
+
+                    }
                 }
                 .padding(.horizontal, 20)
             }
@@ -91,6 +139,10 @@ struct AIUploadPage: View {
             case .success(let urls):
                 if let url = urls.first {
                     selectedFileURL = url
+                    errorMessage = nil // Clear any previous errors
+                    successMessage = nil // Clear any previous success messages
+                    filesDownloaded = false // Clear download status
+                    print("[AIUploadPage] File selected: \(url.lastPathComponent)")
                     withAnimation(.easeInOut(duration: 0.2)) {
                         showUploading = true
                         isUploading = true
@@ -99,9 +151,13 @@ struct AIUploadPage: View {
                     AIHandler.uploadAudio(url: url) { result in
                         switch result {
                         case .success(let baseName):
+                            currentBaseName = baseName
                             isUploading = false
-                            pollForTracks(baseName: baseName)
-                        case .failure(_):
+                            print("[AIUploadPage] Upload successful, starting polling for baseName: \(baseName)")
+                            startPollingForTracks(baseName: baseName)
+                        case .failure(let error):
+                            print("[AIUploadPage] Upload failed: \(error.localizedDescription)")
+                            errorMessage = "Upload failed: \(error.localizedDescription)"
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 showUploading = false
                                 isUploading = false
@@ -110,88 +166,132 @@ struct AIUploadPage: View {
                         }
                     }
                 }
-            case .failure(_):
+            case .failure(let error):
+                print("[AIUploadPage] File selection failed: \(error.localizedDescription)")
+                errorMessage = "File selection failed: \(error.localizedDescription)"
                 break
             }
         }
-        .sheet(isPresented: $showBaseTrackSheet) {
-            BaseTrackSelectionSheet(
-                trackNames: ["Drums", "Bass", "Voice", "Other"],
-                onSelect: { index in
-                    selectedBaseIndex = index
-                    // Set the base audio URL and additional tracks for configure page
-                    createBaseAudioURL = downloadedTrackURLs[index]
-                    createAdditionalZStacks = []
-                    createAdditionalTitles = []
-                    // Add the other tracks (in order, skipping the selected base)
-                    for i in 0..<downloadedTrackURLs.count {
-                        if i != index {
-                            var zStackData = ZStackData(id: createAdditionalZStacks.count + 1)
-                            zStackData.audioURL = downloadedTrackURLs[i]
-                            zStackData.volume = 1.0
-                            createAdditionalZStacks.append(zStackData)
-                            // Map index to title
-                            let titles = ["Drums", "Bass", "Voice", "Other"]
-                            createAdditionalTitles.append(titles[i])
-                        }
-                    }
-                    // Get reference length from selected base track
-                    let baseURL = downloadedTrackURLs[index]
-                    do {
-                        let basePlayer = try AVAudioPlayer(contentsOf: baseURL)
-                        createReferenceLength = basePlayer.duration
-                    } catch {
-                        createReferenceLength = 0
-                    }
-                    createNextID = createAdditionalZStacks.count + 1
-                    // Only now, after selection, navigate to configure page
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showConfigurePage = true
-                        currentPage = .configure
-                    }
-                    showBaseTrackSheet = false
-                },
-                selectedIndex: $selectedBaseIndex
-            )
+        .onDisappear {
+            print("[AIUploadPage] Page disappearing, stopping polling timer")
+            stopPollingTimer()
         }
-    }
-    
-    private func pollForTracks(baseName: String) {
-        AIHandler.pollForTracks(baseName: baseName) { tracks in
-            if let tracks = tracks {
-                // Download tracks
-                AIHandler.downloadTracks(tracks: tracks) { downloadedURLs in
-                    if let downloadedURLs = downloadedURLs {
-                        // Hide uploading screen first, then show base track selection sheet
+        .onChange(of: currentPage) { oldPage, newPage in
+            if newPage != .aiUpload && newPage != .uploading {
+                print("[AIUploadPage] Page changed from \(oldPage) to \(newPage), stopping polling timer")
+                stopPollingTimer()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .aiDownloadCompleted)) { notification in
+            print("[AIUploadPage] Received aiDownloadCompleted notification")
+            DispatchQueue.main.async {
+                if let downloadedTracks = notification.object as? [SeparatedTrack] {
+                    print("[AIUploadPage] Download completed, setting up CreatePage with downloaded tracks")
+                    print("[AIUploadPage] Current state before completion: showUploading=\(showUploading), isDownloading=\(isDownloading), currentPage=\(currentPage)")
+                    
+                    // Track setup is now handled by ContentView
+                    print("[AIUploadPage] Download completed, track setup will be handled by ContentView")
+                    
+                    // Reset downloading state and navigate to AI configure page instead of create page
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isDownloading = false
+                        isUploading = false
+                        showUploading = false
+                    }
+                    
+                    // Small delay to ensure uploading screen is hidden before navigation
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        print("[AIUploadPage] Navigating to aiConfigure page")
                         withAnimation(.easeInOut(duration: 0.2)) {
-                            showUploading = false
-                            isUploading = false
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            downloadedTrackURLs = downloadedURLs
-                            selectedBaseIndex = 0
-                            showBaseTrackSheet = true
-                        }
-                    } else {
-                        // Handle download error - go back to AI upload page
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showUploading = false
-                            isUploading = false
-                            currentPage = .aiUpload
+                            currentPage = .aiConfigure // Navigate directly to AI Configure page
                         }
                     }
-                }
-            } else {
-                // Continue polling
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                    pollForTracks(baseName: baseName)
+                    
+                    print("[AIUploadPage] State after completion: showUploading=\(showUploading), isDownloading=\(isDownloading), currentPage=\(currentPage)")
                 }
             }
         }
     }
+    
+    private func startPollingForTracks(baseName: String) {
+        print("[AIUploadPage] Starting polling for tracks with baseName: \(baseName)")
+        stopPollingTimer()
+        pollingStartTime = Date()
+        pollingTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
+            fetchSeparatedTracks(baseName: baseName)
+        }
+    }
+    
+    private func fetchSeparatedTracks(baseName: String) {
+        print("[AIUploadPage] Fetching separated tracks for baseName: \(baseName)")
+        
+        // Check for timeout
+        if let startTime = pollingStartTime, Date().timeIntervalSince(startTime) > maxPollingDuration {
+            print("[AIUploadPage] Polling timeout reached (5 minutes), stopping polling")
+            stopPollingTimer()
+            errorMessage = "AI separation timed out. Please try again."
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showUploading = false
+                isUploading = false
+                currentPage = .aiUpload
+            }
+            return
+        }
+        
+        AIHandler.pollForTracks(baseName: baseName) { tracks in
+            if let tracks = tracks {
+                print("[AIUploadPage] All tracks discovered on website! Stopping polling immediately.")
+                stopPollingTimer() // Stop polling immediately when tracks are discovered
+                
+                // Show downloading message and stay on upload page
+                self.successMessage = "AI separation completed! Downloading tracks..."
+                self.filesDownloaded = true
+                
+                // Keep user on upload page while downloading - don't set showUploading again
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isUploading = false
+                    isDownloading = true // This will show "Downloading..." instead of "Processing..."
+                    // Don't navigate yet - wait for download to complete
+                }
+                
+                // Handle the separated tracks (download will happen in background)
+                handleSeparatedTracks(tracks: tracks)
+            } else {
+                print("[AIUploadPage] Not all tracks ready yet, continuing to poll...")
+                // Continue polling - timer will call this again
+            }
+        }
+    }
+    
+    private func handleSeparatedTracks(tracks: [SeparatedTrack]) {
+        print("[AIUploadPage] Handling \(tracks.count) discovered tracks...")
+        
+        // Organize tracks by type (these are the discovered tracks, not downloaded yet)
+        let drumsTrack = tracks.first { $0.trackType == "Drums" }
+        let bassTrack = tracks.first { $0.trackType == "Bass" }
+        let voiceTrack = tracks.first { $0.trackType == "Vocals" }
+        let otherTrack = tracks.first { $0.trackType == "Other" }
+        
+        print("[AIUploadPage] Organized discovered tracks - Drums: \(drumsTrack?.name ?? "nil"), Bass: \(bassTrack?.name ?? "nil"), Vocals: \(voiceTrack?.name ?? "nil"), Other: \(otherTrack?.name ?? "nil")")
+        
+        // Store the discovered tracks for later use when download completes
+        discoveredTracks = tracks
+        print("[AIUploadPage] Storing discovered tracks for later setup")
+    }
+    
+
+    
+    private func stopPollingTimer() {
+        pollingTimer?.invalidate()
+        pollingTimer = nil
+    }
+    
+
+    
+
 } 
 
-// MARK: - BaseTrackSelectionSheet
+// MARK: - BaseTrackSelectionSheet (keeping for potential future use)
 struct BaseTrackSelectionSheet: View {
     let trackNames: [String]
     let onSelect: (Int) -> Void

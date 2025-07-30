@@ -117,15 +117,7 @@ struct MainScreen: View {
         }
     }
     
-    // SortOption enum (should match MasterSettings)
-    enum SortOption: String, CaseIterable, Identifiable {
-        case creationDate = "Creation Date"
-        case name = "Name"
-        case distancePlayed = "Distance Played"
-        case amountOfTracks = "Amount of tracks"
-        case color = "Color" // Added for color sorting
-        var id: String { self.rawValue }
-    }
+    // Use SortOption from MasterSettings.swift
     
     var body: some View {
         PageLayout(
@@ -163,7 +155,7 @@ struct MainScreen: View {
                     if !soundtracks.isEmpty {
                         ScrollViewReader { scrollProxy in
                             ScrollView(.vertical, showsIndicators: false) {
-                                VStack(spacing: 14) {
+                                VStack(spacing: 10) {
                                     Color.clear.frame(height: UIScreen.main.bounds.height * 0.08)
                                     ForEach(sortedSoundtracks.indices, id: \.self) { index in
                                         let soundtrack = sortedSoundtracks[index]
@@ -361,7 +353,7 @@ struct MainScreen: View {
         let offsetEffect: Double = {
             if isAnimatingReorder {
                 let cardHeight: Double = 108.0
-                let spacing: Double = 14.0
+                let spacing: Double = 20.0
                 let totalCardHeight = cardHeight + spacing
                 
                 // Only start moving after scaling is complete and held (after 50% of animation)
@@ -406,13 +398,21 @@ struct MainScreen: View {
                         }
                     }) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(soundtrack.title)
-                                .foregroundColor(.white)
-                                .font(.system(size: 28, weight: .semibold))
-                                .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
-                                .minimumScaleFactor(0.3)
-                                .multilineTextAlignment(.leading)
-                                .lineLimit(1)
+                            HStack(alignment: .center, spacing: 4) {
+                                Text(soundtrack.title)
+                                    .foregroundColor(.white)
+                                    .font(.system(size: 28, weight: .semibold))
+                                    .minimumScaleFactor(0.3)
+                                    .lineLimit(1)
+                                
+                                if soundtrack.isAI {
+                                    Image(systemName: "sparkles")
+                                        .foregroundColor(.white)
+                                        .font(.system(size: 16, weight: .medium))
+                                }
+                            }
+                            .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
+                            .multilineTextAlignment(.leading)
                             
                             if locationTrackingEnabled {
                                 let miles = locationHandler.soundtrackDistances[soundtrack.id] ?? 0.0
@@ -438,8 +438,98 @@ struct MainScreen: View {
                             if audioController.isSoundtrackPlaying {
                                 audioController.toggleSoundtrackPlayback()
                             }
-                            audioController.setCurrentSoundtrack(id: soundtrack.id, tracks: soundtrack.tracks, players: soundtrack.players, title: soundtrack.title)
-                            audioController.toggleSoundtrackPlayback()
+                                        // --- AI REBUILD LOGIC START ---
+            if soundtrack.isAI {
+                // Attempt to rebuild players from disk
+                let fileManager = FileManager.default
+                guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+                let aiDownloadedFilesPath = documentsDirectory.appendingPathComponent("AI_Downloaded_Files")
+                var rebuiltPlayers: [AVAudioPlayer?] = []
+                var failedTracks: [String] = []
+                
+                // Debug: List all files in AI_Downloaded_Files directory
+                do {
+                    let contents = try fileManager.contentsOfDirectory(at: aiDownloadedFilesPath, includingPropertiesForKeys: nil)
+                    print("[MainScreen] Found \(contents.count) files in AI_Downloaded_Files:")
+                    for file in contents {
+                        print("[MainScreen] - \(file.lastPathComponent)")
+                    }
+                } catch {
+                    print("[MainScreen] Error listing AI_Downloaded_Files: \(error)")
+                }
+                
+                for track in soundtrack.tracks {
+                    print("[MainScreen] Looking for track: \(track.displayName) with filename: \(track.audioFileName)")
+                    var audioURL: URL?
+                    
+                    // For AI soundtracks, files should be in main documents directory after creation
+                    // First, try the main documents directory
+                    let mainFileURL = documentsDirectory.appendingPathComponent(track.audioFileName)
+                    if fileManager.fileExists(atPath: mainFileURL.path) {
+                        audioURL = mainFileURL
+                        print("[MainScreen] Found in main documents directory: \(mainFileURL.path)")
+                    } else {
+                        // Fallback: try AI_Downloaded_Files directory (in case files weren't cleaned up)
+                        let exactFileURL = aiDownloadedFilesPath.appendingPathComponent(track.audioFileName)
+                        if fileManager.fileExists(atPath: exactFileURL.path) {
+                            audioURL = exactFileURL
+                            print("[MainScreen] Found in AI_Downloaded_Files: \(exactFileURL.path)")
+                        } else {
+                            // If exact match not found, try different extensions in AI_Downloaded_Files
+                            let baseName = track.audioFileName.replacingOccurrences(of: ".mp3", with: "").replacingOccurrences(of: ".m4a", with: "").replacingOccurrences(of: ".wav", with: "")
+                            let possibleExtensions = [".m4a", ".mp3", ".wav"]
+                            
+                            for ext in possibleExtensions {
+                                let testFileName = baseName + ext
+                                let testURL = aiDownloadedFilesPath.appendingPathComponent(testFileName)
+                                if fileManager.fileExists(atPath: testURL.path) {
+                                    audioURL = testURL
+                                    print("[MainScreen] Found extension match in AI_Downloaded_Files: \(testURL.path)")
+                                    break
+                                }
+                            }
+                        }
+                    }
+                    
+                    guard let finalAudioURL = audioURL else {
+                        print("[MainScreen] No valid audio URL found for \(track.audioFileName)")
+                        failedTracks.append(track.displayName)
+                        rebuiltPlayers.append(nil)
+                        continue
+                    }
+                    
+                    do {
+                        let player = try AVAudioPlayer(contentsOf: finalAudioURL)
+                        player.volume = mapVolume(track.maximumVolume)
+                        player.prepareToPlay()
+                        print("[MainScreen] Successfully created player for \(track.displayName) with duration: \(player.duration) seconds")
+                        rebuiltPlayers.append(player)
+                    } catch {
+                        print("[MainScreen] Failed to create player for \(track.displayName): \(error)")
+                        failedTracks.append(track.displayName)
+                        rebuiltPlayers.append(nil)
+                    }
+                }
+                
+                if failedTracks.isEmpty {
+                    print("[MainScreen] All AI tracks loaded successfully, starting playback")
+                    audioController.setCurrentSoundtrack(id: soundtrack.id, tracks: soundtrack.tracks, players: rebuiltPlayers, title: soundtrack.title)
+                    audioController.toggleSoundtrackPlayback()
+                } else {
+                    print("[MainScreen] Failed to load tracks: \(failedTracks)")
+                    // Show alert for failed tracks
+                    let alert = UIAlertController(title: "Playback Error", message: "Could not load the following tracks for playback:\n\n" + failedTracks.joined(separator: ", "), preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                       let rootVC = windowScene.windows.first?.rootViewController {
+                        rootVC.present(alert, animated: true)
+                    }
+                }
+            } else {
+                audioController.setCurrentSoundtrack(id: soundtrack.id, tracks: soundtrack.tracks, players: soundtrack.players, title: soundtrack.title)
+                audioController.toggleSoundtrackPlayback()
+            }
+            // --- AI REBUILD LOGIC END ---
                         } else {
                             audioController.toggleSoundtrackPlayback()
                         }
@@ -487,6 +577,12 @@ struct MainScreen: View {
         .animation(.easeInOut(duration: 0.3), value: soundtracksBeingDeleted)
         .modifier(FlyInCardEffect(isVisible: animateCards, delay: delay))
         .matchedGeometryEffect(id: soundtrack.id, in: cardNamespace)
+    }
+    
+    // Helper function to map volume percentage to AVAudioPlayer volume
+    private func mapVolume(_ percentage: Float) -> Float {
+        let mapped = (percentage + 100) / 100
+        return max(0.0, min(2.0, mapped))
     }
 }
 

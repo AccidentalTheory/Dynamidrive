@@ -1,8 +1,8 @@
 import SwiftUI
 import AVFoundation
 
-struct ConfigurePage: View {
-    @Binding var showConfigurePage: Bool
+struct AIConfigurePage: View {
+    @Binding var showAIConfigurePage: Bool
     @Binding var showCreatePage: Bool
     @Binding var showVolumePage: Bool
     @Binding var createBaseAudioURL: URL?
@@ -26,23 +26,17 @@ struct ConfigurePage: View {
     
     @State private var showInfo2Page: Bool = false
     @State private var showColorPicker: Bool = false
-    // Add state for menu
     @State private var showOrderMenu: Bool = false
-    @State private var orderMenuTarget: Int? = nil // nil for base, or index for dynamic
+    @State private var orderMenuTarget: Int? = nil
 
     var body: some View {
         PageLayout(
-            title: "Configure",
+            title: "AI Configure",
             leftButtonAction: { showColorPicker = true },
             rightButtonAction: { showInfo2Page = true },
             leftButtonSymbol: "paintbrush",
             rightButtonSymbol: "info",
             bottomButtons: [
-                PageButton(label: { Image(systemName: "arrow.uturn.backward").globalButtonStyle() }, action: {
-                    showConfigurePage = false
-                    showCreatePage = true
-                    print("Back button pressed: showConfigurePage = false, showCreatePage = true")
-                }),
                 PageButton(label: { Image(systemName: "checkmark").globalButtonStyle() }, action: {
                     handleDoneAction()
                 }),
@@ -57,12 +51,12 @@ struct ConfigurePage: View {
         ) {
             VStack() {
                 configureHeader()
-                configureTrackList()
+                configureAITrackList()
                 Spacer().frame(height: 100)
             }
         }
         .sheet(isPresented: $showInfo2Page) {
-            info2Page()
+            aiInfoPage()
         }
         .sheet(isPresented: $showColorPicker) {
             colorPickerSheet()
@@ -83,7 +77,7 @@ struct ConfigurePage: View {
         }
     }
 
-    // MARK: - Configure Page Helper Functions
+    // MARK: - AI Configure Page Helper Functions
     func additionalAudioZStack(geometry: GeometryProxy?, index: Int) -> some View {
         var minSpeed: Binding<Int>
         var maxSpeed: Binding<Int>
@@ -177,7 +171,6 @@ struct ConfigurePage: View {
                 }
                 .padding(.leading, 16)
                 .padding(.top, -4)
-                // Remove Move Up/Down Buttons
             }
             // Order Button Menu (top right, aligned with infinity button)
             HStack {
@@ -239,7 +232,7 @@ struct ConfigurePage: View {
     }
     
     @ViewBuilder
-    private func configureTrackList() -> some View {
+    private func configureAITrackList() -> some View {
         VStack(spacing: 20) {
             if createBaseAudioURL != nil {
                 ZStack(alignment: .center) {
@@ -302,60 +295,60 @@ struct ConfigurePage: View {
         }
     }
 
-    // MARK: Info Page
-    private func infoPage() -> some View {
+    // MARK: AI Info Page
+    private func aiInfoPage() -> some View {
         Color(red: 26/255, green: 20/255, blue: 26/255)
             .edgesIgnoringSafeArea(.all)
             .overlay(
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("For best results...")
+                    Text("AI Separation Info")
                         .font(.system(size: 35, weight: .bold))
                         .foregroundColor(.white)
-                    Text("All tracks must be the same length")
+                    
+                    Text("Your audio has been separated into:")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundColor(.white)
-                    Text("All uploaded tracks must be the same length as the base track. This is so the audio files loop cleanly.")
-                        .font(.system(size: 17))
-                        .foregroundColor(.white)
-                    Text("Use different instruments")
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(.white)
-                    HStack {
-                        Text("I recommend using this tool to separate audio tracks. It uses AI to separate the voice, drums, bass, etc. (Please note that the tool isn't owned by me and I don't have any authority over its use.)")
-                            .font(.system(size: 17))
-                            .foregroundColor(.white)
-                        Spacer()
-                        Button(action: {
-                            if let url = URL(string: "https://uvronline.app/ai?hp&px30ac9k6taj1r&lev3n") {
-                                UIApplication.shared.open(url)
-                            }
-                        }) {
-                            Image(systemName: "link")
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "drumsticks")
+                                .foregroundColor(.white)
+                            Text("Drums - Base track")
                                 .font(.system(size: 17))
                                 .foregroundColor(.white)
-                                .frame(width: 30, height: 30)
-                                .background(Color.white.opacity(0.2))
-                                .clipShape(Circle())
+                        }
+                        
+                        HStack {
+                            Image(systemName: "waveform")
+                                .foregroundColor(.white)
+                            Text("Bass - Dynamic track 1")
+                                .font(.system(size: 17))
+                                .foregroundColor(.white)
+                        }
+                        
+                        HStack {
+                            Image(systemName: "person.wave.2")
+                                .foregroundColor(.white)
+                            Text("Vocals - Dynamic track 2")
+                                .font(.system(size: 17))
+                                .foregroundColor(.white)
+                        }
+                        
+                        HStack {
+                            Image(systemName: "music.note")
+                                .foregroundColor(.white)
+                            Text("Other instruments - Dynamic track 3")
+                                .font(.system(size: 17))
+                                .foregroundColor(.white)
                         }
                     }
-                    Spacer()
-                }
-                .padding()
-            )
-    }
-
-    // MARK: Info2 Page
-    private func info2Page() -> some View {
-        Color(red: 26/255, green: 20/255, blue: 26/255)
-            .edgesIgnoringSafeArea(.all)
-            .overlay(
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Configure Page Info")
-                        .font(.system(size: 35, weight: .bold))
-                        .foregroundColor(.white)
-                    Text("Add your content here...")
+                    .padding(.leading, 20)
+                    
+                    Text("All tracks are automatically synchronized and ready for speed-based playback.")
                         .font(.system(size: 17))
                         .foregroundColor(.white)
+                        .padding(.top, 10)
+                    
                     Spacer()
                 }
                 .padding()
@@ -528,4 +521,4 @@ struct ConfigurePage: View {
             maxSpeeds[destination].wrappedValue = maxVal
         }
     }
-}
+} 

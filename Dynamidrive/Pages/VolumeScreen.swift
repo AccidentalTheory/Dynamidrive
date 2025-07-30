@@ -114,6 +114,7 @@ struct AudioControlsView: View {
 
 struct VolumeScreen: View {
     @Binding var showVolumePage: Bool
+    @Binding var volumePageSource: AppPage?
     @Binding var createBaseTitle: String
     @Binding var createBaseVolume: Double
     @Binding var createBaseAudioURL: URL?
@@ -132,7 +133,9 @@ struct VolumeScreen: View {
     
     private var backButton: some View {
         Button(action: {
+            print("[VolumeScreen] Back button pressed, current source: \(volumePageSource.map { String(describing: $0) } ?? "nil")")
             showVolumePage = false
+            // Note: volumePageSource will be reset in the onChange handler after navigation
         }) {
             Image(systemName: "arrow.uturn.backward")
                 .font(.system(size: 20))

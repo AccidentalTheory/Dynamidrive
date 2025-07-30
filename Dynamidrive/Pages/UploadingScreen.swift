@@ -3,6 +3,8 @@ import SwiftUI
 struct UploadingScreen: View {
     @Binding var isVisible: Bool
     @Binding var isUploading: Bool
+    @Binding var isDownloading: Bool
+    @State private var downloadProgress: Double = 0.0
     @State private var opacity: Double = 0.0
     @State private var shimmerOffset: CGFloat = -1.0
     let baseColor = Color(white: 0.3)
@@ -10,16 +12,14 @@ struct UploadingScreen: View {
     let shimmerDuration = 1.2
     let uploadingPhrases = [
         "Sit back and relax, this might take a while.",
-        "Please wait...",
-        "Good things take time!",
-        "Almost there...",
-        "Hang tight, magic in progress!"
+        "One sec...",
+        "In the meantime, check out ButterDogCo.",
+        "Still working...",
+        "Stay tuned, we're still working"
     ]
     @State private var selectedPhrase: String = ""
     @State private var phraseTimer: Timer? = nil
     var body: some View {
-        let isProcessing = !isUploading
-        let text = isUploading ? "Uploading..." : "Processing..."
         ZStack {
             Color.black
                 .ignoresSafeArea(.all, edges: .all)
@@ -28,34 +28,53 @@ struct UploadingScreen: View {
             VStack {
                 Spacer()
                 ZStack {
-                    Text(text)
-                        .font(.title)
-                        .foregroundColor(baseColor)
-                        .multilineTextAlignment(.center)
-                    Text(text)
-                        .font(.title)
-                        .foregroundColor(shimmerColor)
-                        .multilineTextAlignment(.center)
-                        .mask(
-                            GeometryReader { geo in
-                                LinearGradient(
-                                    gradient: Gradient(stops: [
-                                        .init(color: .clear, location: 0.0),
-                                        .init(color: .white.opacity(0.5), location: 0.45),
-                                        .init(color: .white, location: 0.5),
-                                        .init(color: .white.opacity(0.5), location: 0.55),
-                                        .init(color: .clear, location: 1.0)
-                                    ]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                                .frame(width: geo.size.width, height: geo.size.height)
-                                .offset(x: geo.size.width * shimmerOffset)
-                            }
-                        )
-                        .animation(.linear(duration: shimmerDuration).repeatForever(autoreverses: false), value: shimmerOffset)
+                    if isDownloading {
+                        // Progress-based text for downloading
+                        Text("Downloading...")
+                            .font(.title)
+                            .foregroundColor(baseColor)
+                            .multilineTextAlignment(.center)
+                        Text("Downloading...")
+                            .font(.title)
+                            .foregroundColor(shimmerColor)
+                            .multilineTextAlignment(.center)
+                            .mask(
+                                GeometryReader { geo in
+                                    Rectangle()
+                                        .frame(width: geo.size.width * downloadProgress, height: geo.size.height)
+                                }
+                            )
+                    } else {
+                        // Regular text for other states
+                        Text(isUploading ? "Uploading..." : "Processing...")
+                            .font(.title)
+                            .foregroundColor(baseColor)
+                            .multilineTextAlignment(.center)
+                        Text(isUploading ? "Uploading..." : "Processing...")
+                            .font(.title)
+                            .foregroundColor(shimmerColor)
+                            .multilineTextAlignment(.center)
+                            .mask(
+                                GeometryReader { geo in
+                                    LinearGradient(
+                                        gradient: Gradient(stops: [
+                                            .init(color: .clear, location: 0.0),
+                                            .init(color: .white.opacity(0.5), location: 0.45),
+                                            .init(color: .white, location: 0.5),
+                                            .init(color: .white.opacity(0.5), location: 0.55),
+                                            .init(color: .clear, location: 1.0)
+                                        ]),
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                    .frame(width: geo.size.width, height: geo.size.height)
+                                    .offset(x: geo.size.width * shimmerOffset)
+                                }
+                            )
+                                                        .animation(.linear(duration: shimmerDuration).repeatForever(autoreverses: false), value: shimmerOffset)
+                    }
                 }
-                if isProcessing && text == "Processing..." {
+                if !isUploading && !isDownloading {
                     Text(selectedPhrase)
                         .font(.subheadline)
                         .foregroundColor(.gray)
@@ -108,11 +127,28 @@ struct UploadingScreen: View {
                 startPhraseTimer()
             }
         }
+        .onChange(of: isDownloading) { newValue in
+            if newValue {
+                // Switched to downloading, stop timer and clear phrase
+                stopPhraseTimer()
+                selectedPhrase = ""
+                downloadProgress = 0.0 // Reset progress
+            } else {
+                // Switched to processing, start timer and pick phrase
+                selectedPhrase = uploadingPhrases.randomElement() ?? "Please wait..."
+                startPhraseTimer()
+            }
+        }
         .onDisappear {
             opacity = 0.0 // Reset for next appearance
             shimmerOffset = -1.0
             selectedPhrase = ""
             stopPhraseTimer()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .aiDownloadProgress)) { notification in
+            if let progress = notification.object as? Double {
+                downloadProgress = progress
+            }
         }
     }
     func startPhraseTimer() {

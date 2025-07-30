@@ -1,10 +1,11 @@
 import Foundation
 
-enum AppPage: Equatable {
+public enum AppPage: Equatable {
     case loading
     case main
     case create
     case configure
+    case aiConfigure
     case volume
     case playback
     case edit

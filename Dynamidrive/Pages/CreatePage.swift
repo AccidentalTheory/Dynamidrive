@@ -67,6 +67,10 @@ struct CreatePage: View {
         let volume: Float
     }
     // Add any other bindings needed for full functionality
+    @State private var showOrderPicker: Bool = false
+    @State private var orderPickerTarget: OrderPickerTarget? = nil
+    @State private var orderPickerSelection: Int = 0
+    enum OrderPickerTarget { case base, dynamic(Int) }
 
     var body: some View {
         PageLayout(
@@ -247,35 +251,38 @@ struct CreatePage: View {
     private func baseAudioCard(geometry: GeometryProxy) -> some View {
         ZStack {
             GlobalCardAppearance
-            Text(createBaseTitle)
-                .font(.system(size: 35, weight: .semibold))
-                .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
-                .minimumScaleFactor(0.3)
-                .multilineTextAlignment(.leading)
-                .lineLimit(2)
-                .offset(x:-40)
-                .foregroundColor(.white)
-                .padding(.leading, 16)
-            Button(action: {
-                if createBaseAudioURL == nil {
-                    createBaseShowingFilePicker = true
-                } else {
-                    toggleBasePlayback()
+            HStack(spacing: 0) {
+                // Title (no offset for button)
+                Text(createBaseTitle)
+                    .font(.system(size: 35, weight: .semibold))
+                    .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
+                    .minimumScaleFactor(0.3)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(2)
+                    .offset(x: 0)
+                    .foregroundColor(.white)
+                    .padding(.leading, 16)
+                Spacer()
+                // Play/Upload Button
+                Button(action: {
+                    if createBaseAudioURL == nil {
+                        createBaseShowingFilePicker = true
+                    } else {
+                        toggleBasePlayback()
+                    }
+                }) {
+                    if createBaseAudioURL == nil {
+                        Image(systemName: "document.badge.plus.fill")
+                            .offset(x: 1.5)
+                            .globalButtonStyle()
+                    } else {
+                        Image(systemName: createBaseIsPlaying ? "pause.fill" : "play.fill")
+                            .globalButtonStyle()
+                    }
                 }
-            }) {
-                if createBaseAudioURL == nil {
-                    Image(systemName: "document.badge.plus.fill")
-                        .offset(x: 1.5)
-                        .globalButtonStyle()
-                        
-                } else {
-                    Image(systemName: createBaseIsPlaying ? "pause.fill" : "play.fill")
-                        .globalButtonStyle()
-                }
+                .padding(.trailing, 20)
+                .sheet(isPresented: $createBaseShowingFilePicker, content: baseAudioPicker)
             }
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .padding(.trailing, 20)
-            .sheet(isPresented: $createBaseShowingFilePicker, content: baseAudioPicker)
         }
     }
 
@@ -358,36 +365,39 @@ struct CreatePage: View {
     private func dynamicAudioCard(geometry: GeometryProxy, index: Int) -> some View {
         ZStack {
             GlobalCardAppearance
-            Text(index < createAdditionalTitles.count ? createAdditionalTitles[index] : "Audio \(index + 1)")
-                .font(.system(size: 35, weight: .semibold))
-                .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
-                .minimumScaleFactor(0.3)
-                .multilineTextAlignment(.leading)
-                .lineLimit(2)
-                .offset(x:-40)
-                .foregroundColor(.white)
-                .padding(.leading, 16)
-            Button(action: {
-                if createAdditionalZStacks[index].audioURL == nil {
-                    createAdditionalZStacks[index].showingFilePicker = true
-                } else {
-                    togglePlayback(at: index)
+            HStack(spacing: 0) {
+                // Title (no offset for button)
+                Text(index < createAdditionalTitles.count ? createAdditionalTitles[index] : "Audio \(index + 1)")
+                    .font(.system(size: 35, weight: .semibold))
+                    .frame(maxWidth: UIScreen.main.bounds.width * 0.65, alignment: .leading)
+                    .minimumScaleFactor(0.3)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(2)
+                    .offset(x:0)
+                    .foregroundColor(.white)
+                    .padding(.leading, 16)
+                Spacer()
+                // Play/Upload Button
+                Button(action: {
+                    if createAdditionalZStacks[index].audioURL == nil {
+                        createAdditionalZStacks[index].showingFilePicker = true
+                    } else {
+                        togglePlayback(at: index)
+                    }
+                }) {
+                    if createAdditionalZStacks[index].audioURL == nil {
+                        Image(systemName: "document.badge.plus.fill")
+                            .offset(x: 1.5)
+                            .globalButtonStyle()
+                    } else {
+                        Image(systemName: createAdditionalZStacks[index].isPlaying ? "pause.fill" : "play.fill")
+                            .globalButtonStyle()
+                    }
                 }
-            }) {
-                if createAdditionalZStacks[index].audioURL == nil {
-                    Image(systemName: "document.badge.plus.fill")
-                        .offset(x: 1.5)
-                        .globalButtonStyle()
-                        
-                } else {
-                    Image(systemName: createAdditionalZStacks[index].isPlaying ? "pause.fill" : "play.fill")
-                        .globalButtonStyle()
+                .padding(.trailing, 20)
+                .sheet(isPresented: Binding(get: { createAdditionalZStacks[index].showingFilePicker }, set: { newValue in createAdditionalZStacks[index].showingFilePicker = newValue })) {
+                    dynamicAudioPicker(index: index)
                 }
-            }
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .padding(.trailing, 20)
-            .sheet(isPresented: Binding(get: { createAdditionalZStacks[index].showingFilePicker }, set: { newValue in createAdditionalZStacks[index].showingFilePicker = newValue })) {
-                dynamicAudioPicker(index: index)
             }
         }
     }
@@ -789,4 +799,8 @@ struct CreatePage: View {
         }
         return (title, tracks)
     }
+
+    // MARK: - Rearrangement Logic
+    // Remove swapBaseWithDynamic and moveDynamicTrack from CreatePage.swift
+    // Remove their usages from the Menu actions, or replace with a placeholder closure if needed
 } 

@@ -2,6 +2,20 @@ import SwiftUI
 import MapKit
 import UIKit
 
+// Move SortOption enum outside the struct to make it globally accessible
+public enum SortOption: String, CaseIterable, Identifiable {
+    case creationDate = "Creation Date"
+    case name = "Name"
+    case distancePlayed = "Distance Played"
+    case amountOfTracks = "Amount of tracks"
+    case color = "Color" // Added for color sorting
+    
+    public var id: String { self.rawValue }
+    
+    static var orderedCases: [SortOption] {
+        [.creationDate, .name, .distancePlayed, .amountOfTracks, .color] // Added color
+    }
+}
 
 struct MasterSettings: View {
     @Binding var currentPage: AppPage
@@ -71,20 +85,6 @@ struct MasterSettings: View {
     enum BackgroundType: String, Codable {
         case map
         case gradient
-    }
-    
-    enum SortOption: String, CaseIterable, Identifiable {
-        case creationDate = "Creation Date"
-        case name = "Name"
-        case distancePlayed = "Distance Played"
-        case amountOfTracks = "Amount of tracks"
-        case color = "Color" // Added for color sorting
-        
-        var id: String { self.rawValue }
-        
-        static var orderedCases: [SortOption] {
-            [.creationDate, .name, .distancePlayed, .amountOfTracks, .color] // Added color
-        }
     }
     
     var body: some View {

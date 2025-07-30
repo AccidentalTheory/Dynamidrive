@@ -26,6 +26,10 @@ struct EditPage: View {
     @State private var editAudio5MaximumSpeed: Int = 80
     @State private var editSelectedCardColor: Color = .clear
     
+    // Track audio file assignments for swapping
+    @State private var audioFileAssignments: [String] = []
+    @State private var trackPositions: [Int] = [] // Maps UI position to original track index
+    
     var saveSoundtracks: () -> Void
     
     var body: some View {
@@ -79,6 +83,11 @@ struct EditPage: View {
         editSoundtrackTitle = soundtrack.title
         editSelectedCardColor = soundtrack.cardColor
         
+        // Initialize audio file assignments
+        audioFileAssignments = soundtrack.tracks.map { $0.audioFileName }
+        // Initialize track positions (each track starts in its original position)
+        trackPositions = Array(0..<soundtrack.tracks.count)
+        
         // Load base track data
         if !soundtrack.tracks.isEmpty {
             editBaseTitle = soundtrack.tracks[0].displayName
@@ -121,12 +130,28 @@ struct EditPage: View {
     private func handleSaveAction() {
         guard var soundtrack = pendingSoundtrack else { return }
         
+        // Create updated tracks
+        let updatedTracks = createUpdatedTracks()
+        
+        // Reorder players to match the new audio file assignments
+        var reorderedPlayers: [AVAudioPlayer?] = []
+        for (newIndex, audioFile) in audioFileAssignments.enumerated() {
+            // Find the original track that had this audio file
+            if let originalTrackIndex = soundtrack.tracks.firstIndex(where: { $0.audioFileName == audioFile }) {
+                // Get the player that was at the original track index
+                let player = originalTrackIndex < soundtrack.players.count ? soundtrack.players[originalTrackIndex] : nil
+                reorderedPlayers.append(player)
+            } else {
+                reorderedPlayers.append(nil)
+            }
+        }
+        
         // Update soundtrack title
         soundtrack = Soundtrack(
             id: soundtrack.id,
             title: editSoundtrackTitle.trimmingCharacters(in: .whitespaces),
-            tracks: createUpdatedTracks(),
-            players: soundtrack.players,
+            tracks: updatedTracks,
+            players: reorderedPlayers,
             cardColor: editSelectedCardColor
         )
         
@@ -146,6 +171,8 @@ struct EditPage: View {
                 players: soundtrack.players,
                 title: soundtrack.title
             )
+            // Force volume recalculation for the new track assignments
+            audioController.adjustVolumesForSpeed(audioController.locationHandler.speedMPH)
         }
         
         // Save changes
@@ -161,30 +188,38 @@ struct EditPage: View {
         
         var updatedTracks: [AudioController.SoundtrackData] = []
         
-        // Update base track
-        if !originalSoundtrack.tracks.isEmpty {
-            let baseTrack = originalSoundtrack.tracks[0]
+        // Update base track using swapped audio file
+        if !audioFileAssignments.isEmpty {
+            let baseAudioFile = audioFileAssignments[0]
+            let baseTrack = originalSoundtrack.tracks.first { $0.audioFileName == baseAudioFile } ?? originalSoundtrack.tracks[0]
             updatedTracks.append(AudioController.SoundtrackData(
-                audioFileName: baseTrack.audioFileName,
+                audioFileName: baseAudioFile,
                 displayName: editBaseTitle,
                 maximumVolume: baseTrack.maximumVolume,
-                minimumSpeed: baseTrack.minimumSpeed,
-                maximumSpeed: baseTrack.maximumSpeed
+                minimumSpeed: 0, // Base track always plays
+                maximumSpeed: 0   // Base track always plays
             ))
         }
         
-        // Update additional tracks
+        // Update additional tracks using swapped audio files
         for (index, originalTrack) in originalSoundtrack.tracks.enumerated() {
             if index > 0 { // Skip base track
                 let titleIndex = index - 1
                 let displayName = titleIndex < editAdditionalTitles.count ? editAdditionalTitles[titleIndex] : originalTrack.displayName
                 let alwaysPlaying = titleIndex < editAdditionalAlwaysPlaying.count ? editAdditionalAlwaysPlaying[titleIndex] : false
                 
+                // Get the swapped audio file for this position
+                let audioFile = index < audioFileAssignments.count ? audioFileAssignments[index] : originalTrack.audioFileName
+                let trackForVolume = originalSoundtrack.tracks.first { $0.audioFileName == audioFile } ?? originalTrack
+                
+                // Get the original track position for this UI position to determine speed values
+                let originalTrackIndex = index < trackPositions.count ? trackPositions[index] : index
+                
                 var minSpeed = originalTrack.minimumSpeed
                 var maxSpeed = originalTrack.maximumSpeed
                 
-                // Get speed values based on track index
-                switch index {
+                // Get speed values based on original track position
+                switch originalTrackIndex {
                 case 1:
                     minSpeed = alwaysPlaying ? 0 : editAudio1MinimumSpeed
                     maxSpeed = alwaysPlaying ? 0 : editAudio1MaximumSpeed
@@ -205,9 +240,9 @@ struct EditPage: View {
                 }
                 
                 updatedTracks.append(AudioController.SoundtrackData(
-                    audioFileName: originalTrack.audioFileName,
+                    audioFileName: audioFile,
                     displayName: displayName,
-                    maximumVolume: originalTrack.maximumVolume,
+                    maximumVolume: trackForVolume.maximumVolume,
                     minimumSpeed: minSpeed,
                     maximumSpeed: maxSpeed
                 ))
@@ -217,24 +252,57 @@ struct EditPage: View {
         return updatedTracks
     }
     
+    // MARK: - Track Reordering
+    private func moveTrack(at source: Int, to destination: Int) {
+        guard source != destination,
+              source >= 0, source < editAdditionalTitles.count,
+              destination >= 0, destination < editAdditionalTitles.count else { return }
+        // Move Titles
+        let title = editAdditionalTitles.remove(at: source)
+        editAdditionalTitles.insert(title, at: destination);
+        // Move AlwaysPlaying
+        if source < editAdditionalAlwaysPlaying.count {
+            let always = editAdditionalAlwaysPlaying.remove(at: source)
+            editAdditionalAlwaysPlaying.insert(always, at: destination)
+        }
+        // Move speed values if needed (optional, for 5-track limit)
+        let minSpeeds = [
+            $editAudio1MinimumSpeed, $editAudio2MinimumSpeed, $editAudio3MinimumSpeed, $editAudio4MinimumSpeed, $editAudio5MinimumSpeed
+        ]
+        let maxSpeeds = [
+            $editAudio1MaximumSpeed, $editAudio2MaximumSpeed, $editAudio3MaximumSpeed, $editAudio4MaximumSpeed, $editAudio5MaximumSpeed
+        ]
+        if source < minSpeeds.count && destination < minSpeeds.count {
+            let minVal = minSpeeds[source].wrappedValue
+            let maxVal = maxSpeeds[source].wrappedValue
+            minSpeeds[source].wrappedValue = minSpeeds[destination].wrappedValue
+            maxSpeeds[source].wrappedValue = maxSpeeds[destination].wrappedValue
+            minSpeeds[destination].wrappedValue = minVal
+            maxSpeeds[destination].wrappedValue = maxVal
+        }
+    }
+    
     // MARK: - Edit Page Helper Functions
     func additionalAudioZStack(geometry: GeometryProxy, index: Int) -> some View {
+        // Get the original track position for this UI position
+        let originalTrackIndex = index < trackPositions.count ? trackPositions[index + 1] : index + 1
+        
         var minSpeed: Binding<Int>
         var maxSpeed: Binding<Int>
-        switch index {
-        case 0:
+        switch originalTrackIndex {
+        case 1:
             minSpeed = $editAudio1MinimumSpeed
             maxSpeed = $editAudio1MaximumSpeed
-        case 1:
+        case 2:
             minSpeed = $editAudio2MinimumSpeed
             maxSpeed = $editAudio2MaximumSpeed
-        case 2:
+        case 3:
             minSpeed = $editAudio3MinimumSpeed
             maxSpeed = $editAudio3MaximumSpeed
-        case 3:
+        case 4:
             minSpeed = $editAudio4MinimumSpeed
             maxSpeed = $editAudio4MaximumSpeed
-        case 4:
+        case 5:
             minSpeed = $editAudio5MinimumSpeed
             maxSpeed = $editAudio5MaximumSpeed
         default:
@@ -256,7 +324,7 @@ struct EditPage: View {
             }
         )
         
-        return ZStack {
+        return ZStack(alignment: .topTrailing) {
             GlobalCardAppearance
             VStack(spacing: 2) {
                 TextField("Audio \(index + 1)", text: Binding(
@@ -311,7 +379,49 @@ struct EditPage: View {
                 }
                 .padding(.leading, 16)
                 .padding(.top, -4)
+                // Remove Move Up/Down Buttons
             }
+            // Order Button Menu (top right, glass style, 30x30, .padding(.top, 18))
+            HStack {
+                Spacer()
+                Menu {
+                    // This is a dynamic track, so it can swap with base or other dynamic tracks
+                    Button(action: { swapBaseWithDynamic(index) }) {
+                        HStack {
+                            Text("Base")
+                            Spacer()
+                        }
+                    }
+                    ForEach(0..<editAdditionalTitles.count, id: \.self) { i in
+                        Button(action: { 
+                            if i == index {
+                                // Same track, do nothing
+                            } else {
+                                swapDynamicWithDynamic(index, i)
+                            }
+                        }) {
+                            HStack {
+                                Text("Track \(i + 1)")
+                                if i == index {
+                                    Spacer()
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Text("\(index + 1)")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                        .frame(width: 30, height: 30)
+                        .background(Color.white.opacity(0.0))
+                        .clipShape(Circle())
+                        .glassEffect(.regular.tint(.clear).interactive())
+                }
+                .padding(.trailing, 15)
+                .padding(.top, 18)
+            }
+            // Infinity button (bottom right)
             Button(action: {
                 alwaysPlaying.wrappedValue.toggle()
             }) {
@@ -352,7 +462,7 @@ struct EditPage: View {
         VStack(spacing: 10) {
             if let soundtrack = pendingSoundtrack, !soundtrack.tracks.isEmpty {
                 GeometryReader { geometry in
-                    ZStack {
+                    ZStack(alignment: .center) {
                         GlobalCardAppearance
                         VStack(spacing: 0) {
                             TextField("Base", text: $editBaseTitle)
@@ -373,6 +483,36 @@ struct EditPage: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.leading, 16)
                                 .offset(x: 7)
+                        }
+                        // Order Button Menu (vertically centered, right, glass style)
+                        HStack {
+                            Spacer()
+                            Menu {
+                                // This is the base track, so it can swap with any dynamic track
+                                Button(action: { /* Already base, do nothing */ }) {
+                                    HStack {
+                                        Text("Base")
+                                        Spacer()
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                                ForEach(0..<editAdditionalTitles.count, id: \.self) { i in
+                                    Button(action: { swapBaseWithDynamic(i) }) {
+                                        HStack {
+                                            Text("Track \(i + 1)")
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Text("B")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.white)
+                                    .frame(width: 30, height: 30)
+                                    .background(Color.white.opacity(0.0))
+                                    .clipShape(Circle())
+                                    .glassEffect(.regular.tint(.clear).interactive())
+                            }
+                            .padding(.trailing, 15)
                         }
                     }
                 }
@@ -510,4 +650,207 @@ struct EditPage: View {
         .pink,
         .brown
     ]
+
+    // Add swapBaseWithDynamic logic for EditPage
+    private func swapBaseWithDynamic(_ dynamicIdx: Int) {
+        // Save base track info
+        let oldBaseTitle = editBaseTitle
+        
+        // Save dynamic track info
+        let dynamicTitle = editAdditionalTitles[dynamicIdx]
+        let dynamicMinSpeed: Int
+        let dynamicMaxSpeed: Int
+        
+        // Get the speed values for the dynamic track based on its index
+        switch dynamicIdx {
+        case 0:
+            dynamicMinSpeed = editAudio1MinimumSpeed
+            dynamicMaxSpeed = editAudio1MaximumSpeed
+        case 1:
+            dynamicMinSpeed = editAudio2MinimumSpeed
+            dynamicMaxSpeed = editAudio2MaximumSpeed
+        case 2:
+            dynamicMinSpeed = editAudio3MinimumSpeed
+            dynamicMaxSpeed = editAudio3MaximumSpeed
+        case 3:
+            dynamicMinSpeed = editAudio4MinimumSpeed
+            dynamicMaxSpeed = editAudio4MaximumSpeed
+        case 4:
+            dynamicMinSpeed = editAudio5MinimumSpeed
+            dynamicMaxSpeed = editAudio5MaximumSpeed
+        default:
+            dynamicMinSpeed = 0
+            dynamicMaxSpeed = 80
+        }
+        
+        // Swap titles
+        editBaseTitle = dynamicTitle
+        editAdditionalTitles[dynamicIdx] = oldBaseTitle
+        
+        // Swap audio files
+        if !audioFileAssignments.isEmpty && dynamicIdx + 1 < audioFileAssignments.count {
+            let baseAudioFile = audioFileAssignments[0]
+            let dynamicAudioFile = audioFileAssignments[dynamicIdx + 1]
+            audioFileAssignments[0] = dynamicAudioFile
+            audioFileAssignments[dynamicIdx + 1] = baseAudioFile
+        }
+        
+        // Swap track positions
+        if !trackPositions.isEmpty && dynamicIdx + 1 < trackPositions.count {
+            let basePosition = trackPositions[0]
+            let dynamicPosition = trackPositions[dynamicIdx + 1]
+            trackPositions[0] = dynamicPosition
+            trackPositions[dynamicIdx + 1] = basePosition
+        }
+        
+        // Set the new dynamic track (old base) to have the speed values of the old dynamic track
+        switch dynamicIdx {
+        case 0:
+            editAudio1MinimumSpeed = dynamicMinSpeed
+            editAudio1MaximumSpeed = dynamicMaxSpeed
+        case 1:
+            editAudio2MinimumSpeed = dynamicMinSpeed
+            editAudio2MaximumSpeed = dynamicMaxSpeed
+        case 2:
+            editAudio3MinimumSpeed = dynamicMinSpeed
+            editAudio3MaximumSpeed = dynamicMaxSpeed
+        case 3:
+            editAudio4MinimumSpeed = dynamicMinSpeed
+            editAudio4MaximumSpeed = dynamicMaxSpeed
+        case 4:
+            editAudio5MinimumSpeed = dynamicMinSpeed
+            editAudio5MaximumSpeed = dynamicMaxSpeed
+        default:
+            break
+        }
+        
+        // Set the new dynamic track to not always play (since it's now a dynamic track)
+        if dynamicIdx < editAdditionalAlwaysPlaying.count {
+            editAdditionalAlwaysPlaying[dynamicIdx] = false
+        }
+    }
+    
+    // Add swapDynamicWithDynamic logic for EditPage
+    private func swapDynamicWithDynamic(_ fromIdx: Int, _ toIdx: Int) {
+        // Save track info
+        let fromTitle = editAdditionalTitles[fromIdx]
+        let toTitle = editAdditionalTitles[toIdx]
+        
+        // Get the speed values for both tracks
+        let fromMinSpeed: Int
+        let fromMaxSpeed: Int
+        let toMinSpeed: Int
+        let toMaxSpeed: Int
+        
+        switch fromIdx {
+        case 0:
+            fromMinSpeed = editAudio1MinimumSpeed
+            fromMaxSpeed = editAudio1MaximumSpeed
+        case 1:
+            fromMinSpeed = editAudio2MinimumSpeed
+            fromMaxSpeed = editAudio2MaximumSpeed
+        case 2:
+            fromMinSpeed = editAudio3MinimumSpeed
+            fromMaxSpeed = editAudio3MaximumSpeed
+        case 3:
+            fromMinSpeed = editAudio4MinimumSpeed
+            fromMaxSpeed = editAudio4MaximumSpeed
+        case 4:
+            fromMinSpeed = editAudio5MinimumSpeed
+            fromMaxSpeed = editAudio5MaximumSpeed
+        default:
+            fromMinSpeed = 0
+            fromMaxSpeed = 80
+        }
+        
+        switch toIdx {
+        case 0:
+            toMinSpeed = editAudio1MinimumSpeed
+            toMaxSpeed = editAudio1MaximumSpeed
+        case 1:
+            toMinSpeed = editAudio2MinimumSpeed
+            toMaxSpeed = editAudio2MaximumSpeed
+        case 2:
+            toMinSpeed = editAudio3MinimumSpeed
+            toMaxSpeed = editAudio3MaximumSpeed
+        case 3:
+            toMinSpeed = editAudio4MinimumSpeed
+            toMaxSpeed = editAudio4MaximumSpeed
+        case 4:
+            toMinSpeed = editAudio5MinimumSpeed
+            toMaxSpeed = editAudio5MaximumSpeed
+        default:
+            toMinSpeed = 0
+            toMaxSpeed = 80
+        }
+        
+        // Swap titles
+        editAdditionalTitles[fromIdx] = toTitle
+        editAdditionalTitles[toIdx] = fromTitle
+        
+        // Swap audio files
+        if !audioFileAssignments.isEmpty && fromIdx + 1 < audioFileAssignments.count && toIdx + 1 < audioFileAssignments.count {
+            let fromAudioFile = audioFileAssignments[fromIdx + 1]
+            let toAudioFile = audioFileAssignments[toIdx + 1]
+            audioFileAssignments[fromIdx + 1] = toAudioFile
+            audioFileAssignments[toIdx + 1] = fromAudioFile
+        }
+        
+        // Swap track positions
+        if !trackPositions.isEmpty && fromIdx + 1 < trackPositions.count && toIdx + 1 < trackPositions.count {
+            let fromPosition = trackPositions[fromIdx + 1]
+            let toPosition = trackPositions[toIdx + 1]
+            trackPositions[fromIdx + 1] = toPosition
+            trackPositions[toIdx + 1] = fromPosition
+        }
+        
+        // Swap speed values
+        switch fromIdx {
+        case 0:
+            editAudio1MinimumSpeed = toMinSpeed
+            editAudio1MaximumSpeed = toMaxSpeed
+        case 1:
+            editAudio2MinimumSpeed = toMinSpeed
+            editAudio2MaximumSpeed = toMaxSpeed
+        case 2:
+            editAudio3MinimumSpeed = toMinSpeed
+            editAudio3MaximumSpeed = toMaxSpeed
+        case 3:
+            editAudio4MinimumSpeed = toMinSpeed
+            editAudio4MaximumSpeed = toMaxSpeed
+        case 4:
+            editAudio5MinimumSpeed = toMinSpeed
+            editAudio5MaximumSpeed = toMaxSpeed
+        default:
+            break
+        }
+        
+        switch toIdx {
+        case 0:
+            editAudio1MinimumSpeed = fromMinSpeed
+            editAudio1MaximumSpeed = fromMaxSpeed
+        case 1:
+            editAudio2MinimumSpeed = fromMinSpeed
+            editAudio2MaximumSpeed = fromMaxSpeed
+        case 2:
+            editAudio3MinimumSpeed = fromMinSpeed
+            editAudio3MaximumSpeed = fromMaxSpeed
+        case 3:
+            editAudio4MinimumSpeed = fromMinSpeed
+            editAudio4MaximumSpeed = fromMaxSpeed
+        case 4:
+            editAudio5MinimumSpeed = fromMinSpeed
+            editAudio5MaximumSpeed = fromMaxSpeed
+        default:
+            break
+        }
+        
+        // Swap always playing states
+        if fromIdx < editAdditionalAlwaysPlaying.count && toIdx < editAdditionalAlwaysPlaying.count {
+            let fromAlwaysPlaying = editAdditionalAlwaysPlaying[fromIdx]
+            let toAlwaysPlaying = editAdditionalAlwaysPlaying[toIdx]
+            editAdditionalAlwaysPlaying[fromIdx] = toAlwaysPlaying
+            editAdditionalAlwaysPlaying[toIdx] = fromAlwaysPlaying
+        }
+    }
 } 

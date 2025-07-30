@@ -301,7 +301,7 @@ struct PlaybackPage: View {
         let displayedTitle = pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle
         let isCurrentSoundtrack = audioController.currentSoundtrackTitle == displayedTitle && audioController.isSoundtrackPlaying
         VStack(spacing: 20) {
-            if !displayTracks.isEmpty && displayTracks[0].audioFileName.contains("Base") {
+            if !displayTracks.isEmpty && displayTracks[0].minimumSpeed == 0 && displayTracks[0].maximumSpeed == 0 {
                 GeometryReader { geometry in
                     ZStack {
                         GlobalCardAppearance
