@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import AVKit
 import MediaPlayer
 import MapKit
 import ZIPFoundation
@@ -24,7 +25,6 @@ struct PlaybackPage: View {
     @State private var isCompactHeight = false
     @State private var currentHeight: CGFloat = .infinity
     @State private var isExporting = false
-    @State private var isClockActive = false
     
     @State private var minSpeedScale: [Int: CGFloat] = [:]
     @State private var maxSpeedScale: [Int: CGFloat] = [:]
@@ -97,99 +97,125 @@ struct PlaybackPage: View {
     
     var body: some View {
         GeometryReader { geometry in
-            Group {
-                if isCompactHeight {
-                    // Compact view
-                    HStack {
-                        Spacer()
-                        VStack {
-                            if currentHeight > 100 && currentHeight <= 250 {
-                            
-                                Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
-                                    .font(.system(size: 35, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.5)
-                                    .frame(maxWidth: UIScreen.main.bounds.width * 0.8)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.top, 28)
+            ZStack {
+                // Main content area
+                Group {
+                    if isCompactHeight {
+                        // Compact view
+                        HStack {
+                            Spacer()
+                            VStack {
+                                if currentHeight > 100 && currentHeight <= 250 {
                                 
-                                playbackButtons()
-                                Spacer()
-                            } else {
-                                
-                                Spacer()
-                                playbackButtons()
-                                Spacer()
-                            }
-                        }
-                        Spacer()
-                    }
-                } else {
-                    ZStack {
-                        trackList()
-                            .padding(.horizontal)
-                            .padding(.top, 160)
-                            .padding(.bottom, 140)
-                            .allowsHitTesting(false)
-
-                        VStack(spacing: 20) {
-                            // Header
-                            HStack {
-                                Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
-                                    .font(.system(size: 35, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.5)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                Spacer()
-                                Button(action: {
-                                    isExporting = true
-                                    // Delay to allow UI update before heavy work
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                        showShareSheet = true
-                                    }
-                                }) {
-                                    if isExporting {
-                                        ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                            .frame(width: 30, height: 30)
-                                    } else {
-                                        Image(systemName: "square.and.arrow.up")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(.white)
-                                            .frame(width: 30, height: 30)
-                                    }
+                                    Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
+                                        .font(.system(size: 35, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.5)
+                                        .frame(maxWidth: UIScreen.main.bounds.width * 0.8)
+                                        .multilineTextAlignment(.center)
+                                        .padding(.top, 28)
+                                    
+                                    Spacer()
+                                } else {
+                                    Spacer()
                                 }
                             }
-                            .padding(.horizontal)
-                            
-                            // Speed Gauge
-                            GeometryReader { geometry in
-                                speedGauge(geometry: geometry, displayedSpeed: Int(locationHandler.speedMPH.rounded()), animatedSpeed: .constant(locationHandler.speedMPH))
-                            }
-                            .frame(height: 50)
-                            .padding(.horizontal)
-                            
                             Spacer()
                         }
+                    } else {
+                        ZStack {
+                            let displayTracks = pendingSoundtrack?.tracks ?? audioController.currentTracks
+                            
+                            if displayTracks.count > 4 {
+                                // Scrollable track list for more than 4 tracks
+                                ScrollView {
+                                    trackList()
+                                        .padding(.horizontal)
+                                        .padding(.top, -100) // Increased padding inside ScrollView to push content below header
+                                        .padding(.bottom, 140)
+                                        .allowsHitTesting(false)
+                                }
+                                .scrollIndicators(.hidden)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .ignoresSafeArea()
+                            } else {
+                                // Non-scrollable track list for 4 or fewer tracks
+                                trackList()
+                                    .padding(.horizontal)
+                                    .padding(.top, 160)
+                                    .padding(.bottom, 140)
+                                    .allowsHitTesting(false)
+                                    .frame(maxHeight: max(geometry.size.height - 200, 100)) // Add minimum height constraint
+                                    .clipped()
+                            }
 
-                        VStack {
-                            Spacer()
-                            HStack {
-                                Spacer()
-                                playbackButtons()
+                            VStack(spacing: 20) {
+                                // Header
+                                HStack {
+                                    Text(pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle)
+                                        .font(.system(size: 35, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.5)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                    Spacer()
+                                    Button(action: {
+                                        isExporting = true
+                                        // Delay to allow UI update before heavy work
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                            showShareSheet = true
+                                        }
+                                    }) {
+                                        if isExporting {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                .frame(width: 30, height: 30)
+                                        } else {
+                                            Image(systemName: "square.and.arrow.up")
+                                                .font(.system(size: 20))
+                                                .foregroundColor(.white)
+                                                .frame(width: 30, height: 30)
+                                        }
+                                    }
+                                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                }
+                                .padding(.horizontal)
+                                
+                                // Speed Gauge
+                                GeometryReader { geometry in
+                                    speedGauge(geometry: geometry, displayedSpeed: Int(locationHandler.speedMPH.rounded()), animatedSpeed: .constant(locationHandler.speedMPH))
+                                }
+                                .frame(height: 50)
+                                .padding(.horizontal)
+                                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                
                                 Spacer()
                             }
-                            .padding(.bottom, geometry.safeAreaInsets.bottom + 40)
+
+                            Spacer()
                         }
-                        .ignoresSafeArea()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                        .padding(.top, 30)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    .padding(.top, 30)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.clear)
+                
+                // Playback buttons pinned to bottom
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        playbackButtons()
+                        Spacer()
+                    }
+                    .padding(.bottom, 40) // Fixed padding instead of dynamic safe area insets
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.clear)
             }
-            .background(.clear)
             .ignoresSafeArea()
             .sheet(isPresented: $showShareSheet, onDismiss: {
                 isExporting = false
@@ -277,18 +303,22 @@ struct PlaybackPage: View {
                 trackCapsule(track: track, isCurrentSoundtrack: isCurrentSoundtrack)
             }
         }
-                .padding(.horizontal, 20)
+        .padding(.horizontal, 20)
         .padding(.vertical, 20)
-        .padding(.top, -50)
+        .padding(.top, displayTracks.count > 4 ? 200 : -50) // Add extra padding when more than 4 tracks
     }
     
     @ViewBuilder
     private func trackCapsule(track: AudioController.SoundtrackData, isCurrentSoundtrack: Bool) -> some View {
+        let displayedTitle = pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle
+        let isPlaying = audioController.isSoundtrackPlaying && audioController.currentSoundtrackTitle == displayedTitle
+        
         ZStack(alignment: .bottom) {
             // Background rounded rectangle
             RoundedRectangle(cornerRadius: 35)
                 .fill(capsuleBackgroundColor(track: track, isCurrentSoundtrack: isCurrentSoundtrack))
                 .frame(width: 120, height: 240)
+                 .glassEffect(.regular.tint(.clear).interactive(),in: .rect(cornerRadius: 35.0))
                 .overlay(
                     // Filling overlay from bottom up (only for speed-based tracks)
                     VStack(spacing: 0) {
@@ -312,12 +342,19 @@ struct PlaybackPage: View {
                     .padding(.bottom, 12)
             }
         }
+        .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
+        .scaleEffect(isPlaying ? 1.0 : 0.9)
+        .opacity(isPlaying ? 1.0 : 0.6)
+        .animation(.spring(response: 1, dampingFraction: 0.5, blendDuration: 0), value: isPlaying)
     }
     
     private func capsuleBackgroundColor(track: AudioController.SoundtrackData, isCurrentSoundtrack: Bool) -> Color {
+        let displayedTitle = pendingSoundtrack?.title ?? audioController.currentSoundtrackTitle
+        let isPlaying = audioController.isSoundtrackPlaying && audioController.currentSoundtrackTitle == displayedTitle
+        
         if track.minimumSpeed == 0 && track.maximumSpeed == 0 {
-            // Always playing tracks - full white background
-            return Color.white
+            // Always playing tracks - change background based on playback state
+            return isPlaying ? Color.white : Color.white.opacity(0.2)
         } else {
             // Speed-based tracks - semi-transparent background
             return Color.white.opacity(0.2)
@@ -356,24 +393,35 @@ struct PlaybackPage: View {
             Spacer()
             HStack(spacing: 80) {
                 if audioController.isSoundtrackPlaying {
-                    // Clock button when playing
+                    // AirPlay button when playing
                     Button(action: {
-                        let impact = UIImpactFeedbackGenerator(style: .medium)
-                        impact.impactOccurred()
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            isClockActive.toggle()
+                        // Open AirPlay menu using MPVolumeView
+                        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                           let window = windowScene.windows.first {
+                            let volumeView = MPVolumeView()
+                            volumeView.showsRouteButton = true
+                            volumeView.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+                            window.addSubview(volumeView)
+                            
+                            // Find and trigger the route button
+                            if let routeButton = volumeView.subviews.first(where: { $0 is UIButton }) as? UIButton {
+                                routeButton.sendActions(for: .touchUpInside)
+                            }
+                            
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                volumeView.removeFromSuperview()
+                            }
                         }
                     }) {
-                        Image(systemName: "clock.badge.fill")
+                        Image(systemName: "airplay.audio")
                             .font(.system(size: 20))
-                            .foregroundStyle(isClockActive ? .red : .white)
-                            .symbolRenderingMode(.multicolor)
+                            .foregroundColor(.white)
                             .frame(width: 50, height: 50)
                             .background(Color.white.opacity(0.2))
                             .clipShape(Circle())
-                            .glassEffect(.regular.tint(isClockActive ? .white : .clear).interactive())
-
+                            .glassEffect(.regular.tint(.clear).interactive())
                     }
+                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                 } else {
                     // Rewind button when not playing
                     Button(action: {
@@ -401,6 +449,7 @@ struct PlaybackPage: View {
                             .clipShape(Circle())
                             .glassEffect(.regular.tint(.clear).interactive())
                     }
+                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                 }
                 
                 Button(action: {
@@ -424,6 +473,7 @@ struct PlaybackPage: View {
                         .clipShape(Circle())
                         .glassEffect(.regular.tint(.clear).interactive())
                 }
+                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
 
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.5)) {
@@ -438,9 +488,9 @@ struct PlaybackPage: View {
                         .clipShape(Circle())
                         .glassEffect(.regular.tint(.clear).interactive())
                 }
+                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
             }
            // .padding(.horizontal)
-            .padding(.bottom, 8)
             .background(Color.clear)
         }
     }
