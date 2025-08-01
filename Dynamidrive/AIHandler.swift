@@ -17,6 +17,21 @@ struct SeparatedTrack {
 class AIHandler {
     static let backendBaseURL = "https://demucs.dynamidrive.app"
     static let expectedTracks = ["vocals.wav", "drums.wav", "bass.wav", "other.wav"]
+    
+    // Helper function to sanitize filenames by removing special characters
+    static func sanitizeFileName(_ fileName: String) -> String {
+        // Remove special characters that could cause issues in URLs or file systems
+        // Keep alphanumeric characters, spaces, hyphens, and underscores
+        let allowedCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: " -_."))
+        let sanitized = fileName.components(separatedBy: allowedCharacters.inverted).joined()
+        
+        // Remove leading/trailing whitespace and replace multiple spaces with single space
+        let trimmed = sanitized.trimmingCharacters(in: .whitespacesAndNewlines)
+        let singleSpaced = trimmed.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        
+        // Ensure the filename is not empty
+        return singleSpaced.isEmpty ? "audio_file" : singleSpaced
+    }
 
     static func uploadAudio(url: URL, completion: @escaping (Result<String, Error>) -> Void) {
         print("[AIHandler] Starting upload for file: \(url.lastPathComponent)")
@@ -46,11 +61,12 @@ class AIHandler {
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         let fieldName = "file"
-        let fileName = url.lastPathComponent
+        let originalFileName = url.lastPathComponent
+        let sanitizedFileName = sanitizeFileName(originalFileName)
         let mimeType = "audio/wav"
         var body = Data()
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(sanitizedFileName)\"\r\n".data(using: .utf8)!)
         body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
         body.append(fileData)
         body.append("\r\n".data(using: .utf8)!)
@@ -58,8 +74,8 @@ class AIHandler {
         
         // Set up a custom session configuration with longer timeout
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 300 // 5 minutes
-        config.timeoutIntervalForResource = 300 // 5 minutes
+        config.timeoutIntervalForRequest = 600 // 10 minutes
+        config.timeoutIntervalForResource = 600 // 10 minutes
         let session = URLSession(configuration: config)
         
         let task = session.uploadTask(with: request, from: body) { data, response, error in
@@ -69,8 +85,8 @@ class AIHandler {
                     completion(.failure(error))
                     return
                 }
-                print("[AIHandler] Upload succeeded for file: \(fileName)")
-                let baseName = url.deletingPathExtension().lastPathComponent
+                print("[AIHandler] Upload succeeded for file: \(sanitizedFileName) (original: \(originalFileName))")
+                let baseName = sanitizeFileName(url.deletingPathExtension().lastPathComponent)
                 completion(.success(baseName))
             }
         }

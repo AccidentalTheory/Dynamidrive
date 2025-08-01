@@ -46,7 +46,7 @@ struct AIUploadPage: View {
     @State private var filesDownloaded: Bool = false
     @State private var pollingStartTime: Date?
     @State private var discoveredTracks: [SeparatedTrack] = []
-    private let maxPollingDuration: TimeInterval = 300 // 5 minutes max
+    private let maxPollingDuration: TimeInterval = 600 // 10 minutes max
 
     var body: some View {
         ZStack {
